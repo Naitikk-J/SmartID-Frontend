@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   MITS Smart ID — Design System
+   ═══════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-primary: #1B3A6B;
+  --color-primary-light: #2a4f8f;
+  --color-accent: #2563EB;
+  --color-success: #16A34A;
+  --color-danger: #DC2626;
+  --color-warning: #D97706;
+  --color-neutral: #6B7280;
+  --color-bg-dark: #0F172A;
+  --color-bg-card: #1E293B;
+  --color-bg-hover: #334155;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-border: #334155;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+/* Animations */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-slide-in { animation: slideIn 0.3s ease-out; }
+.animate-pulse-badge { animation: pulse-badge 2s infinite; }
