@@ -26,7 +26,7 @@ export default function DashboardPage() {
         refetchInterval: 5000, // Poll every 5 seconds
     })
 
-    const liveFeed: ScanEvent[] = polledFeed || []
+    const liveFeed: ScanEvent[] = polledFeed?.events || []
 
     const deptData = attendanceSummary?.summary
         ? Object.entries(attendanceSummary.summary).map(([dept, vals]: [string, any]) => ({
