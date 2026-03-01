@@ -17,7 +17,6 @@ export default function LiveFeedPage() {
         queryFn: () => api.get('/scan/recent', {
             params: { date: selectedDate, page, limit: 50 }
         }).then(r => r.data.data),
-        enabled: !isToday || page > 1 // Only fetch if not live today's first page
     })
 
     // If it's today and first page, use live feed from store + initial fetch
