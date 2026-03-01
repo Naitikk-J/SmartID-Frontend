@@ -34,11 +34,37 @@ export default function ReportsPage() {
                 {occupancy?.hourly?.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={occupancy.hourly}>
-                            <XAxis dataKey="hour" stroke="#94A3B8" fontSize={12} tickFormatter={(h: number) => `${h}:00`} />
-                            <YAxis stroke="#94A3B8" fontSize={12} />
-                            <Tooltip contentStyle={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '8px' }} />
-                            <Line type="monotone" dataKey="entries" stroke="#16A34A" strokeWidth={2} dot={false} />
-                            <Line type="monotone" dataKey="exits" stroke="#DC2626" strokeWidth={2} dot={false} />
+                            <XAxis
+                                dataKey="hour"
+                                stroke="#94A3B8"
+                                fontSize={10}
+                                fontWeight={700}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(h: number) => {
+                                    const period = h < 12 ? 'AM' : 'PM';
+                                    const displayHour = h % 12 === 0 ? 12 : h % 12;
+                                    return `${displayHour} ${period}`;
+                                }}
+                            />
+                            <YAxis stroke="#94A3B8" fontSize={10} fontWeight={700} axisLine={false} tickLine={false} />
+                            <Tooltip
+                                contentStyle={{
+                                    background: '#0F172A',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '12px',
+                                    padding: '8px'
+                                }}
+                                labelStyle={{ color: '#F8FAFC', fontWeight: '900', marginBottom: '4px' }}
+                                labelFormatter={(label: any) => {
+                                    const h = Number(label);
+                                    const period = h < 12 ? 'AM' : 'PM';
+                                    const displayHour = h % 12 === 0 ? 12 : h % 12;
+                                    return `Time: ${displayHour} ${period}`;
+                                }}
+                            />
+                            <Line type="monotone" dataKey="entries" stroke="#10B981" strokeWidth={3} dot={false} />
+                            <Line type="monotone" dataKey="exits" stroke="#F43F5E" strokeWidth={3} dot={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 ) : (

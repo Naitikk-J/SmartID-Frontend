@@ -62,8 +62,8 @@ export default function LiveFeedPage() {
                         <p className="text-text-secondary font-medium text-sm flex items-center gap-2">
                             {isToday ? (
                                 <>
-                                    <span className={`w-2 h-2 rounded-full ${connected ? 'bg-success animate-pulse' : 'bg-danger'}`} />
-                                    {connected ? 'Streaming live data' : 'Connection lost'}
+                                    {/* <span className={`w-2 h-2 rounded-full ${connected ? 'bg-success animate-pulse' : 'bg-danger'}`} />
+                                    {connected ? 'Streaming live data' : 'Connection lost'} */}
                                 </>
                             ) : (
                                 `Viewing records for ${new Date(selectedDate).toLocaleDateString(undefined, { dateStyle: 'long' })}`
