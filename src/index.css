@@ -107,6 +107,16 @@
     }
 }
 
+@keyframes slow-zoom {
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.1);
+    }
+}
+
 .animate-float {
     animation: float 3s ease-in-out infinite;
 }
@@ -117,6 +127,10 @@
 
 .animate-glow {
     animation: glow 2s ease-in-out infinite;
+}
+
+.animate-slow-zoom {
+    animation: slow-zoom 20s ease-in-out infinite alternate;
 }
 
 /* Scrollbar Modernization */

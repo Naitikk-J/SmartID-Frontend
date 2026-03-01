@@ -35,10 +35,21 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-bg-dark relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg-dark">
+            {/* Background Image with Overlay */}
+            <div
+                className="absolute inset-0 z-0 scale-105 animate-slow-zoom"
+                style={{
+                    backgroundImage: 'url("/MITS.png")',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                }}
+            />
+            <div className="absolute inset-0 bg-bg-dark/60 backdrop-blur-[2px] z-0" />
+
             {/* Visual Decoration */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse z-1" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-pulse z-1" style={{ animationDelay: '2s' }} />
 
             <div className="w-full max-w-md px-6 relative z-10 animate-fade-in-up">
                 <div className="glass-card p-10 shadow-2xl relative overflow-hidden group">
