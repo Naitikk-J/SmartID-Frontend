@@ -1,46 +1,137 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   MITS Smart ID — Design System
+   MITS Smart ID — Premium Design System 2.0 (Glassmorphism)
    ═══════════════════════════════════════════════════════════════ */
 
 @theme {
-  --color-primary: #1B3A6B;
-  --color-primary-light: #2a4f8f;
-  --color-accent: #2563EB;
-  --color-success: #16A34A;
-  --color-danger: #DC2626;
-  --color-warning: #D97706;
-  --color-neutral: #6B7280;
-  --color-bg-dark: #0F172A;
-  --color-bg-card: #1E293B;
-  --color-bg-hover: #334155;
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: #94A3B8;
-  --color-border: #334155;
+    --color-primary: #4F46E5;
+    /* Indigo 600 */
+    --color-primary-light: #6366F1;
+    /* Indigo 500 */
+    --color-accent: #818CF8;
+    /* Indigo 400 */
+    --color-success: #10B981;
+    /* Emerald 500 */
+    --color-danger: #F43F5E;
+    /* Rose 500 */
+    --color-warning: #F59E0B;
+    /* Amber 500 */
+    --color-neutral: #64748B;
+    /* Slate 500 */
+
+    --color-bg-dark: #020617;
+    /* Slate 950 */
+    --color-bg-card: #0F172A;
+    /* Slate 900 */
+    --color-bg-glass: rgba(15, 23, 42, 0.7);
+    --color-bg-hover: #1E293B;
+    /* Slate 800 */
+
+    --color-text-primary: #F8FAFC;
+    /* Slate 50 */
+    --color-text-secondary: #94A3B8;
+    /* Slate 400 */
+    --color-border: rgba(51, 65, 85, 0.5);
+    /* Slate 700 with alpha */
+
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--color-bg-dark);
-  color: var(--color-text-primary);
+@layer base {
+    body {
+        @apply antialiased text-text-primary bg-bg-dark;
+        font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+    }
+
+    * {
+        @apply transition-all duration-200;
+    }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--color-bg-dark); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+@layer components {
+    .glass {
+        @apply bg-bg-glass backdrop-blur-md border border-border shadow-glass rounded-2xl;
+    }
 
-/* Animations */
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+    .glass-card {
+        @apply glass hover:border-accent/40 hover:shadow-accent/5 transition-all duration-300;
+    }
+
+    .btn-premium {
+        @apply px-4 py-2 bg-primary hover:bg-primary-light text-white rounded-xl font-medium shadow-lg shadow-primary/20 active:scale-95 transition-all;
+    }
+
+    .input-premium {
+        @apply bg-bg-hover/50 border border-border rounded-xl px-4 py-2 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all;
+    }
 }
 
-@keyframes pulse-badge {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* ── Custom Animations ───────────────────────────────────────── */
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
 }
 
-.animate-slide-in { animation: slideIn 0.3s ease-out; }
-.animate-pulse-badge { animation: pulse-badge 2s infinite; }
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 10px rgba(79, 70, 229, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 0 20px rgba(79, 70, 229, 0.2);
+    }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 0.4s ease-out forwards;
+}
+
+.animate-glow {
+    animation: glow 2s ease-in-out infinite;
+}
+
+/* Scrollbar Modernization */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 10px;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+}

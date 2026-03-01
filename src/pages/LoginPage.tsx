@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { Lock, Mail } from 'lucide-react'
+import { Lock, Mail, ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -35,43 +35,56 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-bg-dark">
-            <div className="w-full max-w-md">
-                <div className="bg-bg-card rounded-2xl border border-border p-8 shadow-2xl">
-                    {/* Logo */}
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-gradient-to-br from-accent to-primary rounded-xl mx-auto mb-4 flex items-center justify-center">
-                            <span className="text-2xl font-bold">M</span>
+        <div className="min-h-screen flex items-center justify-center bg-bg-dark relative overflow-hidden">
+            {/* Visual Decoration */}
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+
+            <div className="w-full max-w-md px-6 relative z-10 animate-fade-in-up">
+                <div className="glass-card p-10 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
+
+                    {/* Logo Section */}
+                    <div className="text-center mb-10">
+                        <div className="relative inline-block">
+                            <div className="w-20 h-20 bg-gradient-to-br from-primary to-primary-light rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-xl shadow-primary/20 transform group-hover:rotate-6 transition-transform duration-500">
+                                <ShieldCheck size={40} className="text-white" strokeWidth={2.5} />
+                            </div>
+                            <div className="absolute -inset-2 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <h1 className="text-2xl font-bold">MITS Smart ID</h1>
-                        <p className="text-text-secondary text-sm mt-1">Admin Dashboard Login</p>
+                        <h1 className="text-3xl font-black tracking-tighter text-text-primary mb-2">
+                            SMART-ID <span className="text-primary font-medium tracking-normal text-lg">ADMIN</span>
+                        </h1>
+                        <p className="text-text-secondary font-bold text-[10px] uppercase tracking-[0.2em] opacity-60">
+                            Secure Infrastructure Access
+                        </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div>
-                            <label className="block text-sm text-text-secondary mb-1.5">Email</label>
-                            <div className="relative">
-                                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary ml-1">Email Identity</label>
+                            <div className="relative group/input">
+                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within/input:text-primary transition-colors" />
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-bg-dark border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:border-accent focus:outline-none transition-colors"
-                                    placeholder="admin@mits.ac.in"
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-text-primary focus:border-primary/40 focus:bg-white/[0.08] focus:outline-none transition-all placeholder:text-text-secondary/30"
+                                    placeholder="Enter system email"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm text-text-secondary mb-1.5">Password</label>
-                            <div className="relative">
-                                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary ml-1">Secure Password</label>
+                            <div className="relative group/input">
+                                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within/input:text-primary transition-colors" />
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-bg-dark border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:border-accent focus:outline-none transition-colors"
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-text-primary focus:border-primary/40 focus:bg-white/[0.08] focus:outline-none transition-all placeholder:text-text-secondary/30"
                                     placeholder="••••••••"
                                     required
                                 />
@@ -81,16 +94,31 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-accent hover:bg-accent/90 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                            className="w-full group/btn relative bg-primary text-white font-black text-sm uppercase tracking-widest py-4 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                         >
-                            {loading ? 'Signing in...' : 'Sign In'}
+                            <div className="relative z-10 flex items-center justify-center gap-2">
+                                {loading ? 'Validating Token...' : (
+                                    <>
+                                        Authorize Access
+                                        <ShieldCheck size={18} />
+                                    </>
+                                )}
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
                         </button>
                     </form>
 
-                    <p className="text-center text-xs text-text-secondary mt-6">
-                        Madhav Institute of Technology & Science, Gwalior
-                    </p>
+                    <div className="mt-10 pt-8 border-t border-white/5 text-center">
+                        <p className="text-[9px] font-black text-text-secondary uppercase tracking-[0.3em] opacity-40">
+                            Madhav Institute of Technology & Science
+                        </p>
+                    </div>
                 </div>
+
+                {/* External Link or Help */}
+                <p className="text-center mt-8 text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60">
+                    Proprietary Security Infrastructure &copy; {new Date().getFullYear()}
+                </p>
             </div>
         </div>
     )
