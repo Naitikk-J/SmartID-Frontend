@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
 import StatCard from '../components/ui/StatCard'
 import Badge from '../components/ui/Badge'
-import { Users, ClipboardCheck, AlertTriangle, Wallet, Radio, ChevronRight } from 'lucide-react'
+import { Users, ClipboardCheck, AlertTriangle, Radio, ChevronRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import type { ScanEvent } from '../store/socketStore'
 import { Link } from 'react-router-dom'
@@ -71,18 +71,11 @@ export default function DashboardPage() {
                     subtitle="Attendance in progress"
                 />
                 <StatCard
-                    title="Security Alerts"
+                    title="Anomalies"
                     value={liveFeed.filter((e: ScanEvent) => ['FAKE', 'LIMIT_HIT'].includes(e.result)).length}
                     icon={AlertTriangle}
                     color="text-danger"
-                    subtitle="Anomalies detected"
-                />
-                <StatCard
-                    title="Canteen Revenue"
-                    value="₹4.2k"
-                    icon={Wallet}
-                    color="text-warning"
-                    subtitle="Total revenue today"
+                    subtitle="Security alerts today"
                 />
             </div>
 

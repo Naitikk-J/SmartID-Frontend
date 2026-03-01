@@ -11,7 +11,6 @@ import AttendancePage from './pages/AttendancePage'
 import ExitRulesPage from './pages/ExitRulesPage'
 import EventsPage from './pages/EventsPage'
 import LibraryPage from './pages/LibraryPage'
-import WalletPage from './pages/WalletPage'
 import ElectionsPage from './pages/ElectionsPage'
 import ReportsPage from './pages/ReportsPage'
 import HealthPage from './pages/HealthPage'
@@ -45,7 +44,6 @@ function DashboardLayout() {
                             <Route path="/exit-rules" element={<ExitRulesPage />} />
                             <Route path="/events" element={<EventsPage />} />
                             <Route path="/library" element={<LibraryPage />} />
-                            <Route path="/wallet" element={<WalletPage />} />
                             <Route path="/elections" element={<ElectionsPage />} />
                             <Route path="/reports" element={<ReportsPage />} />
                             <Route path="/health" element={<HealthPage />} />

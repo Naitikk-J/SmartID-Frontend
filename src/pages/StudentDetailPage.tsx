@@ -82,7 +82,6 @@ export default function StudentDetailPage() {
                         <div><span className="text-xs text-text-secondary">Section</span><p className="text-sm">{data.section || '—'}</p></div>
                         <div><span className="text-xs text-text-secondary">Blood Group</span><p className="text-sm">{data.bloodGroup || '—'}</p></div>
                         <div><span className="text-xs text-text-secondary">Emergency Contact</span><p className="text-sm">{data.emergencyName} — {data.emergencyPhone || '—'}</p></div>
-                        <div><span className="text-xs text-text-secondary">Wallet Balance</span><p className="text-sm font-semibold text-success">₹{data.wallet?.balance || 0}</p></div>
                     </div>
                 </div>
 

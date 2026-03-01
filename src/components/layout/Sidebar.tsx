@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
 import {
     LayoutDashboard, Radio, Users, ClipboardCheck, DoorOpen, Calendar,
-    BookOpen, Wallet, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X
+    BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X
 } from 'lucide-react'
 
 const navItems = [
@@ -15,7 +15,6 @@ const navItems = [
     { path: '/exit-rules', label: 'Exit Rules', icon: DoorOpen, permission: 'Exit Rules' },
     { path: '/events', label: 'Events', icon: Calendar, permission: 'Events' },
     { path: '/library', label: 'Library', icon: BookOpen, permission: 'Library' },
-    { path: '/wallet', label: 'Wallet', icon: Wallet, permission: 'Wallet' },
     { path: '/elections', label: 'Elections', icon: Vote, permission: 'Elections' },
     { path: '/reports', label: 'Reports', icon: BarChart3, permission: 'Reports' },
     { path: '/health', label: 'Health', icon: Heart, permission: 'Health' },
