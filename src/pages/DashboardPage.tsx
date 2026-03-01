@@ -15,9 +15,9 @@ export default function DashboardPage() {
         refetchInterval: 30000,
     })
 
-    const { data: attendanceSummary } = useQuery({
-        queryKey: ['attendance-summary'],
-        queryFn: () => api.get('/reports/attendance-summary').then((r) => r.data.data),
+    const { data: entrySummary } = useQuery({
+        queryKey: ['entry-summary'],
+        queryFn: () => api.get('/reports/entry-summary').then((r) => r.data.data),
         refetchInterval: 30000,
     })
 
@@ -29,12 +29,12 @@ export default function DashboardPage() {
 
     const liveFeed: ScanEvent[] = polledFeed?.events || []
 
-    const deptData = attendanceSummary?.summary
-        ? Object.entries(attendanceSummary.summary).map(([dept, vals]: [string, any]) => ({
+    const deptData = entrySummary?.summary
+        ? Object.entries(entrySummary.summary).map(([dept, count]: [string, any]) => ({
             name: dept,
-            sessions: vals.totalSessions,
-            records: vals.totalRecords,
-            pct: vals.totalSessions > 0 ? Math.round((vals.totalRecords / (vals.totalSessions * 50)) * 100) : 0,
+            entries: count,
+            // Dynamic threshold for color: green for 50+, lavender for 20+, rose for <20
+            status: count >= 50 ? 'high' : count >= 20 ? 'med' : 'low',
         }))
         : []
 
@@ -148,21 +148,21 @@ export default function DashboardPage() {
 
                 {/* Growth/Stats Section */}
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Attendance Analytics */}
+                    {/* Entry Analysis */}
                     <div className="glass-card p-6">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h3 className="text-xl font-bold text-text-primary">Attendance Analytics</h3>
-                                <p className="text-xs text-text-secondary font-medium">Departmental participation records</p>
+                                <h3 className="text-xl font-bold text-text-primary">Entry Analysis</h3>
+                                <p className="text-xs text-text-secondary font-medium">Real-time departmental entry traffic</p>
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-success" />
-                                    <span className="text-[10px] font-bold uppercase text-text-secondary">High</span>
+                                    <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">Busy</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-danger" />
-                                    <span className="text-[10px] font-bold uppercase text-text-secondary">Low</span>
+                                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(79,70,233,0.5)]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">Normal</span>
                                 </div>
                             </div>
                         </div>
@@ -197,11 +197,11 @@ export default function DashboardPage() {
                                         itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                                         labelStyle={{ color: '#F8FAFC', fontWeight: '900', marginBottom: '4px' }}
                                     />
-                                    <Bar dataKey="records" radius={[8, 8, 8, 8]} barSize={32}>
+                                    <Bar dataKey="entries" radius={[8, 8, 8, 8]} barSize={32}>
                                         {deptData.map((entry, i) => (
                                             <Cell
                                                 key={i}
-                                                fill={entry.pct >= 75 ? '#10B981' : entry.pct >= 50 ? '#818CF8' : '#F43F5E'}
+                                                fill={entry.status === 'high' ? '#10B981' : entry.status === 'med' ? '#818CF8' : '#F43F5E'}
                                                 fillOpacity={0.8}
                                             />
                                         ))}
@@ -210,7 +210,7 @@ export default function DashboardPage() {
                             </ResponsiveContainer>
                         ) : (
                             <div className="h-[300px] flex items-center justify-center text-text-secondary border-2 border-dashed border-white/5 rounded-3xl">
-                                <p className="text-sm font-medium">No departmental metrics found</p>
+                                <p className="text-sm font-medium">No departmental entry data for today</p>
                             </div>
                         )}
                     </div>
