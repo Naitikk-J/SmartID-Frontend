@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge'
 import { Radio, Calendar, ChevronLeft, ChevronRight, History, Search, Download } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
+import toast from 'react-hot-toast'
 
 export default function LiveFeedPage() {
     const { liveFeed: realTimeFeed, connected } = useSocketStore()
@@ -11,6 +12,27 @@ export default function LiveFeedPage() {
     const [page, setPage] = useState(1)
 
     const isToday = selectedDate === new Date().toISOString().split('T')[0]
+
+    const handleDownload = async () => {
+        try {
+            toast.loading('Preparing export...', { id: 'csv-export' })
+            const response = await api.get('/scan/export', {
+                params: { date: selectedDate },
+                responseType: 'blob'
+            })
+
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `scan_logs_${selectedDate}.csv`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            toast.success('Logs exported successfully', { id: 'csv-export' })
+        } catch (err) {
+            toast.error('Failed to export logs', { id: 'csv-export' })
+        }
+    }
 
     const { data: historyData, isLoading } = useQuery({
         queryKey: ['scan-history', selectedDate, page],
@@ -63,7 +85,10 @@ export default function LiveFeedPage() {
                             className="bg-transparent text-sm font-bold text-text-primary focus:outline-none w-32"
                         />
                     </div>
-                    <button className="p-3 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary border border-white/10 rounded-2xl transition-all">
+                    <button
+                        onClick={handleDownload}
+                        className="p-3 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary border border-white/10 rounded-2xl transition-all"
+                    >
                         <Download size={20} />
                     </button>
                 </div>
