@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import LiveFeedPage from './pages/LiveFeedPage'
 import StudentsPage from './pages/StudentsPage'
 import StudentDetailPage from './pages/StudentDetailPage'
+import HostellersPage from './pages/HostellersPage'
 import AttendancePage from './pages/AttendancePage'
 import ExitRulesPage from './pages/ExitRulesPage'
 import EventsPage from './pages/EventsPage'
@@ -40,6 +41,7 @@ function DashboardLayout() {
                             <Route path="/live-feed" element={<LiveFeedPage />} />
                             <Route path="/students" element={<StudentsPage />} />
                             <Route path="/students/:id" element={<StudentDetailPage />} />
+                            <Route path="/hostellers" element={<HostellersPage />} />
                             <Route path="/attendance" element={<AttendancePage />} />
                             <Route path="/exit-rules" element={<ExitRulesPage />} />
                             <Route path="/events" element={<EventsPage />} />

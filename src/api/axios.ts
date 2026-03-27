@@ -2,8 +2,10 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
+const DEPLOYED_API_URL = 'https://smart-id-backend.vercel.app/api/v1'
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1',
+    baseURL: import.meta.env.VITE_API_URL || DEPLOYED_API_URL,
     timeout: 150000,
 })
 

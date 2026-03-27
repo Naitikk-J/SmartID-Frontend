@@ -261,6 +261,10 @@ export default function StudentsPage() {
                         <input {...register('email')} type="email" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
                     </div>
                     <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Portal Password</label>
+                        <input {...register('password')} type="password" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" placeholder="Min 6 characters" />
+                    </div>
+                    <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Department</label>
                         <select {...register('department')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
                             <option value="CSE">CSE</option>

@@ -7,12 +7,12 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'https://smartidbackend.vercel.app',
+                target: 'https://smart-id-backend.vercel.app',
                 changeOrigin: true,
                 secure: true,
             },
             '/socket.io': {
-                target: 'https://smartidbackend.vercel.app',
+                target: 'https://smart-id-backend.vercel.app',
                 changeOrigin: true,
                 secure: true,
                 ws: true,

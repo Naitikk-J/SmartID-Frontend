@@ -4,10 +4,12 @@ import { useAuthStore } from '../store/authStore'
 import { useSocketStore } from '../store/socketStore'
 import toast from 'react-hot-toast'
 
+const DEPLOYED_SOCKET_URL = 'https://smart-id-backend.vercel.app'
+
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
     (import.meta.env.VITE_API_URL?.startsWith('http')
         ? import.meta.env.VITE_API_URL.replace('/api/v1', '')
-        : 'http://localhost:4000')
+        : DEPLOYED_SOCKET_URL)
 
 export function useSocket() {
     const token = useAuthStore((s) => s.token)

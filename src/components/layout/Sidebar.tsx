@@ -4,13 +4,14 @@ import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
 import {
     LayoutDashboard, Radio, Users, ClipboardCheck, DoorOpen, Calendar,
-    BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X
+    BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X, Home
 } from 'lucide-react'
 
 const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'Dashboard' },
     { path: '/live-feed', label: 'Live Feed', icon: Radio, permission: 'Live Feed' },
     { path: '/students', label: 'Students', icon: Users, permission: 'Students' },
+    { path: '/hostellers', label: 'Hostellers', icon: Home, permission: 'Hostellers' },
     { path: '/attendance', label: 'Attendance', icon: ClipboardCheck, permission: 'Attendance' },
     { path: '/exit-rules', label: 'Exit Rules', icon: DoorOpen, permission: 'Exit Rules' },
     { path: '/events', label: 'Events', icon: Calendar, permission: 'Events' },
