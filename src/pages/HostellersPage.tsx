@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
+import toast from 'react-hot-toast'
 import {
     Search, Download, Filter, ChevronLeft, ChevronRight,
     Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield
@@ -29,6 +30,7 @@ export default function HostellersPage() {
     // Fetch hosteller entry/exit logs
     const { data: logsData, isLoading: isLoadingLogs, error } = useQuery({
         queryKey: ['hosteller-logs', search, dateFilter, directionFilter, page],
+        refetchInterval: 15000,
         queryFn: async () => {
             try {
                 const response = await api.get('/scan/recent', {
@@ -61,6 +63,7 @@ export default function HostellersPage() {
 
     const { data: outsideData, isLoading: isLoadingOutside } = useQuery({
         queryKey: ['hostellerOutside', dateFilter],
+        refetchInterval: 15000,
         queryFn: async () => {
             const response = await api.get('/scan/hosteller/outside', {
                 params: {
@@ -68,6 +71,26 @@ export default function HostellersPage() {
                 },
             })
             return response.data.data
+        },
+    })
+
+    const { data: pendingPinkSlipsCount = 0 } = useQuery({
+        queryKey: ['hostellerPendingPinkSlipsCount'],
+        refetchInterval: 15000,
+        queryFn: async () => {
+            const response = await api.get('/pink-slips', {
+                params: {
+                    status: 'PENDING',
+                    studentType: 'HOSTELLER',
+                    page: 1,
+                    limit: 1,
+                },
+            })
+            const responseData = response.data?.data
+            if (typeof responseData?.total === 'number') return responseData.total
+            if (Array.isArray(responseData?.pinkSlips)) return responseData.pinkSlips.length
+            if (Array.isArray(responseData)) return responseData.length
+            return 0
         },
     })
 
@@ -82,6 +105,7 @@ export default function HostellersPage() {
         },
         onSuccess: () => {
             setApiError(null)
+            toast.success('Manual entry marked successfully')
             queryClient.invalidateQueries({ queryKey: ['hosteller-logs'] })
             queryClient.invalidateQueries({ queryKey: ['hostellerOutside'] })
         },
@@ -103,12 +127,25 @@ export default function HostellersPage() {
         : 0
     const entryCount = todayLogs.filter((l: any) => l.direction === 'ENTRY').length
     const exitCount = todayLogs.filter((l: any) => l.direction === 'EXIT').length
+    const manualEntryCount = todayLogs.filter((l: any) => l.direction === 'ENTRY' && l.source === 'MANUAL_OVERRIDE').length
+    const longOutsideCount = Array.isArray(outsideData?.students)
+        ? outsideData.students.filter((s: any) => {
+            const seen = new Date(s.lastSeenAt)
+            const diffHours = (Date.now() - seen.getTime()) / (1000 * 60 * 60)
+            return diffHours >= 2
+        }).length
+        : 0
 
     const getActiveCurfewWindow = () => {
         if (!curfewData) return "Loading...";
-        const rule = curfewData.find((r: any) => r.studentType === 'HOSTELLER') || curfewData[0];
-        if (!rule) return "Not configured";
-        return `${rule.startTime} — ${rule.endTime}`;
+        const boys = curfewData.find((r: any) => r.studentType === 'HOSTELLER_BOYS');
+        const girls = curfewData.find((r: any) => r.studentType === 'HOSTELLER_GIRLS');
+        if (boys && girls) {
+            return `B: ${boys.startTime} — ${boys.endTime} | G: ${girls.startTime} — ${girls.endTime}`;
+        }
+        const fallback = boys || girls || curfewData[0];
+        if (!fallback) return "Not configured";
+        return `${fallback.startTime} — ${fallback.endTime}`;
     };
 
     const downloadCSV = () => {
@@ -167,7 +204,7 @@ export default function HostellersPage() {
             </div>
 
             {/* ═══ Statistics Cards ═══ */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[
                     {
                         icon: <Eye size={20} />, label: 'Total Detections', value: total || 0,
@@ -184,6 +221,18 @@ export default function HostellersPage() {
                     {
                         icon: <BarChart3 size={20} />, label: 'Entry / Exit', value: `${entryCount} / ${exitCount}`,
                         color: 'from-warning/20 to-amber-600/20', textColor: 'text-warning', borderColor: 'border-warning/20',
+                    },
+                    {
+                        icon: <LogIn size={20} />, label: 'Manual Entries', value: manualEntryCount,
+                        color: 'from-emerald-500/20 to-green-500/20', textColor: 'text-success', borderColor: 'border-success/20',
+                    },
+                    {
+                        icon: <Shield size={20} />, label: 'Outside > 2h', value: isLoadingOutside ? '...' : longOutsideCount,
+                        color: 'from-rose-500/20 to-orange-500/20', textColor: 'text-warning', borderColor: 'border-warning/20',
+                    },
+                    {
+                        icon: <Users size={20} />, label: 'Pending Slips', value: pendingPinkSlipsCount,
+                        color: 'from-sky-500/20 to-blue-500/20', textColor: 'text-primary', borderColor: 'border-primary/20',
                     },
                 ].map((stat) => (
                     <div key={stat.label}

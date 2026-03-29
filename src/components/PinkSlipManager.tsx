@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import { Check, X, Clock, User, Calendar, MessageSquare } from 'lucide-react'
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 export default function PinkSlipManager() {
     const queryClient = useQueryClient()
@@ -10,7 +11,7 @@ export default function PinkSlipManager() {
     const { data, isLoading } = useQuery({
         queryKey: ['pending-pink-slips'],
         queryFn: async () => {
-            const res = await api.get('/pink-slips', { params: { status: 'PENDING' } })
+            const res = await api.get('/pink-slips', { params: { status: 'PENDING', studentType: 'HOSTELLER' } })
             // Be resilient to different response structures
             const responseData = res.data.data
             if (Array.isArray(responseData)) return responseData
@@ -23,8 +24,14 @@ export default function PinkSlipManager() {
         mutationFn: async ({ id, status, remarks }: { id: string, status: string, remarks?: string }) => {
             await api.patch(`/pink-slips/${id}`, { status, remarks })
         },
-        onSuccess: () => {
+        onSuccess: (_, variables) => {
+            toast.success(variables.status === 'APPROVED' ? 'Pink slip approved' : 'Pink slip rejected')
             queryClient.invalidateQueries({ queryKey: ['pending-pink-slips'] })
+            setRemarks((prev) => {
+                const next = { ...prev }
+                delete next[variables.id]
+                return next
+            })
         }
     })
 
@@ -102,14 +109,14 @@ export default function PinkSlipManager() {
                         </div>
 
                         <div className="space-y-3">
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Add approval remarks..."
                                 value={remarks[slip.id] || ''}
                                 onChange={(e) => setRemarks(prev => ({ ...prev, [slip.id]: e.target.value }))}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
                             />
-                            
+
                             <div className="grid grid-cols-2 gap-3 pt-1">
                                 <button
                                     onClick={() => mutation.mutate({ id: slip.id, status: 'REJECTED', remarks: remarks[slip.id] })}
