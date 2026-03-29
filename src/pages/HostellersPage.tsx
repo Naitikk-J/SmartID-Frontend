@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import {
     Search, Download, Filter, ChevronLeft, ChevronRight,
@@ -10,8 +10,10 @@ import FaceRegistration from '../components/FaceRegistration'
 import FaceLiveDetectionPanel from '../components/FaceLiveDetectionPanel'
 import AccessControlPanel from '../components/AccessControlPanel'
 import PinkSlipManager from '../components/PinkSlipManager'
+import CurfewManager from '../components/CurfewManager' // Import the new component
 
 export default function HostellersPage() {
+    const queryClient = useQueryClient()
     const [search, setSearch] = useState('')
     const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
     const [directionFilter, setDirectionFilter] = useState<'ENTRY' | 'EXIT' | ''>('')
@@ -22,6 +24,7 @@ export default function HostellersPage() {
     const [selectedStudentName, setSelectedStudentName] = useState<string>('')
     const [showLiveDetection, setShowLiveDetection] = useState(false)
     const [activeFaceTab, setActiveFaceTab] = useState<'NONE' | 'LIVE' | 'REGISTER'>('NONE')
+    const [showCurfewManager, setShowCurfewManager] = useState(false) // State for modal
 
     // Fetch hosteller entry/exit logs
     const { data: logsData, isLoading: isLoadingLogs, error } = useQuery({
@@ -47,6 +50,47 @@ export default function HostellersPage() {
         },
     })
 
+    // Fetch curfew rules
+    const { data: curfewData, isLoading: isLoadingCurfew } = useQuery({
+        queryKey: ['curfewRules'],
+        queryFn: async () => {
+            const response = await api.get('/rules/curfew');
+            return response.data.data;
+        },
+    });
+
+    const { data: outsideData, isLoading: isLoadingOutside } = useQuery({
+        queryKey: ['hostellerOutside', dateFilter],
+        queryFn: async () => {
+            const response = await api.get('/scan/hosteller/outside', {
+                params: {
+                    date: dateFilter || undefined,
+                },
+            })
+            return response.data.data
+        },
+    })
+
+    const manualEntryMutation = useMutation({
+        mutationFn: async ({ studentId, gateId }: { studentId: string; gateId?: string | null }) => {
+            const response = await api.post('/gates/exit-override', {
+                studentId,
+                gateId: gateId || undefined,
+                direction: 'ENTRY',
+            })
+            return response.data
+        },
+        onSuccess: () => {
+            setApiError(null)
+            queryClient.invalidateQueries({ queryKey: ['hosteller-logs'] })
+            queryClient.invalidateQueries({ queryKey: ['hostellerOutside'] })
+        },
+        onError: (err: any) => {
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to mark manual entry'
+            setApiError(errorMsg)
+        },
+    })
+
     const logs = logsData?.events || logsData || []
     const total = logsData?.total || logs.length
     const pages = Math.ceil(total / 50)
@@ -59,6 +103,13 @@ export default function HostellersPage() {
         : 0
     const entryCount = todayLogs.filter((l: any) => l.direction === 'ENTRY').length
     const exitCount = todayLogs.filter((l: any) => l.direction === 'EXIT').length
+
+    const getActiveCurfewWindow = () => {
+        if (!curfewData) return "Loading...";
+        const rule = curfewData.find((r: any) => r.studentType === 'HOSTELLER') || curfewData[0];
+        if (!rule) return "Not configured";
+        return `${rule.startTime} — ${rule.endTime}`;
+    };
 
     const downloadCSV = () => {
         if (logs.length === 0) return
@@ -151,8 +202,8 @@ export default function HostellersPage() {
                     <button
                         onClick={() => { setActiveFaceTab('LIVE'); setShowLiveDetection(true) }}
                         className={`group p-5 rounded-2xl border transition-all hover:shadow-lg ${activeFaceTab === 'LIVE'
-                                ? 'border-primary/60 bg-gradient-to-br from-primary/20 to-accent/20 shadow-lg shadow-primary/10'
-                                : 'border-white/10 bg-gradient-to-br from-primary/10 to-accent/10 hover:border-primary/40'
+                            ? 'border-primary/60 bg-gradient-to-br from-primary/20 to-accent/20 shadow-lg shadow-primary/10'
+                            : 'border-white/10 bg-gradient-to-br from-primary/10 to-accent/10 hover:border-primary/40'
                             }`}
                     >
                         <div className="flex items-center gap-3">
@@ -180,8 +231,8 @@ export default function HostellersPage() {
                             setSelectedStudentName('')
                         }}
                         className={`group p-5 rounded-2xl border transition-all hover:shadow-lg ${activeFaceTab === 'REGISTER'
-                                ? 'border-success/60 bg-gradient-to-br from-success/20 to-accent/20 shadow-lg shadow-success/10'
-                                : 'border-white/10 bg-gradient-to-br from-success/10 to-accent/10 hover:border-success/40'
+                            ? 'border-success/60 bg-gradient-to-br from-success/20 to-accent/20 shadow-lg shadow-success/10'
+                            : 'border-white/10 bg-gradient-to-br from-success/10 to-accent/10 hover:border-success/40'
                             }`}
                     >
                         <div className="flex items-center gap-3">
@@ -233,13 +284,66 @@ export default function HostellersPage() {
                     <div className="flex items-center gap-6">
                         <div className="text-right">
                             <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Active Window</p>
-                            <p className="text-sm font-black text-primary">09:00 PM — 06:00 AM</p>
+                            <p className="text-sm font-black text-primary">{isLoadingCurfew ? '...' : getActiveCurfewWindow()}</p>
                         </div>
-                        <button className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-xl text-xs font-black transition-all">
+                        <button
+                            onClick={() => setShowCurfewManager(true)}
+                            className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-xl text-xs font-black transition-all"
+                        >
                             Configure timings
                         </button>
                     </div>
                 </div>
+            </div>
+
+            {/* Students Currently Outside */}
+            <div className="glass-card p-6 border border-warning/30 bg-warning/5">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                        <h3 className="font-bold text-text-primary leading-tight text-lg">Students Currently Outside</h3>
+                        <p className="text-xs text-text-secondary">Latest movement is EXIT (no re-entry recorded yet)</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest">Count</p>
+                        <p className="text-2xl font-black text-warning">
+                            {isLoadingOutside ? '...' : (outsideData?.count ?? 0)}
+                        </p>
+                    </div>
+                </div>
+
+                {isLoadingOutside ? (
+                    <div className="flex justify-center items-center h-20">
+                        <LoadingSpinner />
+                    </div>
+                ) : !outsideData?.students?.length ? (
+                    <p className="text-sm text-text-secondary">No students are currently outside for selected date.</p>
+                ) : (
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {outsideData.students.slice(0, 20).map((item: any) => (
+                            <div key={item.student?.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                                <div>
+                                    <p className="text-sm font-bold text-text-primary">{item.student?.fullName}</p>
+                                    <p className="text-xs text-text-secondary">
+                                        {item.student?.enrollmentNo} • {item.student?.department || 'N/A'}
+                                    </p>
+                                </div>
+                                <div className="text-right flex flex-col items-end gap-1.5">
+                                    <p className="text-xs font-bold text-warning">EXIT</p>
+                                    <p className="text-[11px] text-text-secondary">
+                                        {new Date(item.lastSeenAt).toLocaleString()}
+                                    </p>
+                                    <button
+                                        onClick={() => manualEntryMutation.mutate({ studentId: item.student?.id, gateId: item.gateId })}
+                                        disabled={manualEntryMutation.isPending || !item.student?.id}
+                                        className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-success/20 text-success hover:bg-success/30 disabled:opacity-50"
+                                    >
+                                        {manualEntryMutation.isPending ? 'Marking...' : 'Mark Manual Entry'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Pink Slip Management */}
@@ -426,6 +530,8 @@ export default function HostellersPage() {
                     }}
                 />
             )}
+
+            {showCurfewManager && <CurfewManager onClose={() => setShowCurfewManager(false)} />}
         </div>
     )
 }

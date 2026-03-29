@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { canRoleView } from './hooks/usePermission'
 import Sidebar from './components/layout/Sidebar'
 import Header from './components/layout/Header'
 import LoginPage from './pages/LoginPage'
@@ -24,7 +25,26 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <>{children}</>
 }
 
+function getRoleHome(role?: string) {
+    if (role === 'WARDEN') return '/hostellers'
+    return '/'
+}
+
+function PermissionRoute({ permission, children }: { permission: string, children: React.ReactNode }) {
+    const user = useAuthStore((s) => s.user)
+    const role = user?.role || 'SECURITY_GUARD'
+
+    if (!canRoleView(role, permission)) {
+        return <Navigate to={getRoleHome(role)} replace />
+    }
+
+    return <>{children}</>
+}
+
 function DashboardLayout() {
+    const user = useAuthStore((s) => s.user)
+    const role = user?.role
+
     return (
         <div className="flex h-screen overflow-hidden bg-bg-dark selection:bg-primary/30">
             <Sidebar />
@@ -37,20 +57,21 @@ function DashboardLayout() {
                 <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative z-10">
                     <div className="max-w-7xl mx-auto">
                         <Routes>
-                            <Route path="/" element={<DashboardPage />} />
-                            <Route path="/live-feed" element={<LiveFeedPage />} />
-                            <Route path="/students" element={<StudentsPage />} />
-                            <Route path="/students/:id" element={<StudentDetailPage />} />
-                            <Route path="/hostellers" element={<HostellersPage />} />
-                            <Route path="/attendance" element={<AttendancePage />} />
-                            <Route path="/exit-rules" element={<ExitRulesPage />} />
-                            <Route path="/events" element={<EventsPage />} />
-                            <Route path="/library" element={<LibraryPage />} />
-                            <Route path="/elections" element={<ElectionsPage />} />
-                            <Route path="/reports" element={<ReportsPage />} />
-                            <Route path="/health" element={<HealthPage />} />
-                            <Route path="/admin-users" element={<AdminUsersPage />} />
-                            <Route path="/audit-log" element={<AuditLogPage />} />
+                            <Route path="/" element={<PermissionRoute permission="Dashboard"><DashboardPage /></PermissionRoute>} />
+                            <Route path="/live-feed" element={<PermissionRoute permission="Live Feed"><LiveFeedPage /></PermissionRoute>} />
+                            <Route path="/students" element={<PermissionRoute permission="Students"><StudentsPage /></PermissionRoute>} />
+                            <Route path="/students/:id" element={<PermissionRoute permission="Students"><StudentDetailPage /></PermissionRoute>} />
+                            <Route path="/hostellers" element={<PermissionRoute permission="Hostellers"><HostellersPage /></PermissionRoute>} />
+                            <Route path="/attendance" element={<PermissionRoute permission="Attendance"><AttendancePage /></PermissionRoute>} />
+                            <Route path="/exit-rules" element={<PermissionRoute permission="Exit Rules"><ExitRulesPage /></PermissionRoute>} />
+                            <Route path="/events" element={<PermissionRoute permission="Events"><EventsPage /></PermissionRoute>} />
+                            <Route path="/library" element={<PermissionRoute permission="Library"><LibraryPage /></PermissionRoute>} />
+                            <Route path="/elections" element={<PermissionRoute permission="Elections"><ElectionsPage /></PermissionRoute>} />
+                            <Route path="/reports" element={<PermissionRoute permission="Reports"><ReportsPage /></PermissionRoute>} />
+                            <Route path="/health" element={<PermissionRoute permission="Health"><HealthPage /></PermissionRoute>} />
+                            <Route path="/admin-users" element={<PermissionRoute permission="Admin Users"><AdminUsersPage /></PermissionRoute>} />
+                            <Route path="/audit-log" element={<PermissionRoute permission="Audit Log"><AuditLogPage /></PermissionRoute>} />
+                            <Route path="*" element={<Navigate to={getRoleHome(role)} replace />} />
                         </Routes>
                     </div>
                 </main>
