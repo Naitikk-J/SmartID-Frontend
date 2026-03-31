@@ -79,9 +79,15 @@ export default function StudentDetailPage() {
                     <div className="grid grid-cols-2 gap-4 mt-6">
                         <div><span className="text-xs text-text-secondary">Email</span><p className="text-sm">{data.email}</p></div>
                         <div><span className="text-xs text-text-secondary">Phone</span><p className="text-sm">{data.phone || '—'}</p></div>
+                        <div><span className="text-xs text-text-secondary">Father Name</span><p className="text-sm">{data.fatherName || data.emergencyName || '—'}</p></div>
+                        <div><span className="text-xs text-text-secondary">Father Mobile</span><p className="text-sm">{data.fatherMobile || data.emergencyPhone || '—'}</p></div>
+                        <div><span className="text-xs text-text-secondary">Allotted No.</span><p className="text-sm">{data.allottedNo || '—'}</p></div>
+                        <div><span className="text-xs text-text-secondary">Room No.</span><p className="text-sm">{data.roomNo || data.section || '—'}</p></div>
+                        <div><span className="text-xs text-text-secondary">Category</span><p className="text-sm">{data.category || '—'}</p></div>
                         <div><span className="text-xs text-text-secondary">Section</span><p className="text-sm">{data.section || '—'}</p></div>
                         <div><span className="text-xs text-text-secondary">Blood Group</span><p className="text-sm">{data.bloodGroup || '—'}</p></div>
                         <div><span className="text-xs text-text-secondary">Emergency Contact</span><p className="text-sm">{data.emergencyName} — {data.emergencyPhone || '—'}</p></div>
+                        <div className="col-span-2"><span className="text-xs text-text-secondary">Permanent Address</span><p className="text-sm">{data.permanentAddress || '—'}</p></div>
                     </div>
                 </div>
 

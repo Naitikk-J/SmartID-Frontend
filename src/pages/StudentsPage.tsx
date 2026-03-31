@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { Search, Plus, Upload, Users, QrCode, Download, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Plus, Upload, Users, QrCode, Download, Filter, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useForm } from 'react-hook-form'
@@ -14,12 +14,15 @@ export default function StudentsPage() {
     const [page, setPage] = useState(1)
     const [showImport, setShowImport] = useState(false)
     const [showAdd, setShowAdd] = useState(false)
+    const [showEdit, setShowEdit] = useState(false)
     const [selectedStudent, setSelectedStudent] = useState<any>(null)
+    const [editingStudent, setEditingStudent] = useState<any>(null)
     const [importFile, setImportFile] = useState<File | null>(null)
 
     const navigate = useNavigate()
     const qc = useQueryClient()
-    const { register, handleSubmit, reset } = useForm()
+    const { register: addRegister, handleSubmit: handleAddSubmit, reset: resetAdd } = useForm()
+    const { register: editRegister, handleSubmit: handleEditSubmit, reset: resetEdit } = useForm()
 
     const { data, isLoading } = useQuery({
         queryKey: ['students', search, deptFilter, page],
@@ -31,10 +34,31 @@ export default function StudentsPage() {
         onSuccess: () => {
             toast.success('Student added successfully')
             setShowAdd(false)
-            reset()
+            resetAdd()
             qc.invalidateQueries({ queryKey: ['students'] })
         },
         onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to add student'),
+    })
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/students/${id}`, body),
+        onSuccess: () => {
+            toast.success('Student updated successfully')
+            setShowEdit(false)
+            setEditingStudent(null)
+            resetEdit()
+            qc.invalidateQueries({ queryKey: ['students'] })
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to update student'),
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => api.delete(`/students/${id}`),
+        onSuccess: () => {
+            toast.success('Student deleted successfully')
+            qc.invalidateQueries({ queryKey: ['students'] })
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to delete student'),
     })
 
     const importMutation = useMutation({
@@ -64,6 +88,31 @@ export default function StudentsPage() {
         link.download = `QR_${selectedStudent.enrollmentNo}.png`
         link.href = url
         link.click()
+    }
+
+    const openEditModal = (student: any) => {
+        setEditingStudent(student)
+        resetEdit({
+            fullName: student.fullName || '',
+            enrollmentNo: student.enrollmentNo || '',
+            email: student.email || '',
+            phone: student.phone || '',
+            fatherName: student.fatherName || '',
+            fatherMobile: student.fatherMobile || '',
+            allottedNo: student.allottedNo || '',
+            roomNo: student.roomNo || '',
+            category: student.category || '',
+            permanentAddress: student.permanentAddress || '',
+            department: student.department || 'CSE',
+            year: String(student.year || 1),
+            studentType: student.studentType || 'DAY_SCHOLAR',
+        })
+        setShowEdit(true)
+    }
+
+    const onDeleteStudent = (student: any) => {
+        if (!window.confirm(`Delete student ${student.fullName}?`)) return
+        deleteMutation.mutate(student.id)
     }
 
     return (
@@ -148,7 +197,7 @@ export default function StudentsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {data?.students === 0 ? (
+                                {data?.students?.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-24 text-center">
                                             <p className="text-text-secondary font-bold">No students found matching your criteria</p>
@@ -186,15 +235,30 @@ export default function StudentsPage() {
                                             <span className="text-xs font-black text-text-primary">{s.year}</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${s.cards?.[0]?.status === 'ACTIVE'
+                                            <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${s.isActive !== false && s.cards?.[0]?.status === 'ACTIVE'
                                                 ? 'bg-success/10 text-success border border-success/20'
                                                 : 'bg-danger/10 text-danger border border-danger/20'
                                                 }`}>
-                                                {s.cards?.[0]?.status || 'NO CARD'}
+                                                {s.isActive === false ? 'DELETED' : (s.cards?.[0]?.status || 'NO CARD')}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                <button
+                                                    className="p-2 text-text-secondary hover:text-warning hover:bg-white/5 rounded-xl transition-all"
+                                                    title="Edit Student"
+                                                    onClick={(e) => { e.stopPropagation(); openEditModal(s) }}
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button
+                                                    className="p-2 text-text-secondary hover:text-danger hover:bg-white/5 rounded-xl transition-all"
+                                                    title="Delete Student"
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteStudent(s) }}
+                                                    disabled={deleteMutation.isPending || s.isActive === false}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
                                                 <button
                                                     className="p-2 text-text-secondary hover:text-accent hover:bg-white/5 rounded-xl transition-all"
                                                     title="View QR Code"
@@ -247,26 +311,53 @@ export default function StudentsPage() {
 
             {/* Add Student Modal Content */}
             <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Register New Student">
-                <form onSubmit={handleSubmit((d) => createMutation.mutate({ ...d, year: parseInt(d.year) }))} className="grid grid-cols-2 gap-6">
+                <form onSubmit={handleAddSubmit((d) => createMutation.mutate({ ...d, year: parseInt(d.year) }))} className="grid grid-cols-2 gap-6">
                     <div className="col-span-2">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Full Name</label>
-                        <input {...register('fullName')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                        <input {...addRegister('fullName')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
                     </div>
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Enrollment No</label>
-                        <input {...register('enrollmentNo')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                        <input {...addRegister('enrollmentNo')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
                     </div>
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Email Identity</label>
-                        <input {...register('email')} type="email" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                        <input {...addRegister('email')} type="email" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Portal Password</label>
-                        <input {...register('password')} type="password" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" placeholder="Min 6 characters" />
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Student Mobile</label>
+                        <input {...addRegister('phone')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Father Name</label>
+                        <input {...addRegister('fatherName')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Father Mobile</label>
+                        <input {...addRegister('fatherMobile')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Allotted No.</label>
+                        <input {...addRegister('allottedNo')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Room No.</label>
+                        <input {...addRegister('roomNo')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Category</label>
+                        <input {...addRegister('category')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Permanent Address</label>
+                        <textarea {...addRegister('permanentAddress')} rows={2} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div className="col-span-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs font-bold text-text-secondary">
+                        Initial password will be auto-set to student mobile number.
                     </div>
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Department</label>
-                        <select {...register('department')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                        <select {...addRegister('department')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
                             <option value="CSE">CSE</option>
                             <option value="ECE">ECE</option>
                             <option value="IT">IT</option>
@@ -277,7 +368,7 @@ export default function StudentsPage() {
                     </div>
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Academic Year</label>
-                        <select {...register('year')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                        <select {...addRegister('year')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
                             <option value="1">1st Year</option>
                             <option value="2">2nd Year</option>
                             <option value="3">3rd Year</option>
@@ -286,7 +377,7 @@ export default function StudentsPage() {
                     </div>
                     <div className="col-span-2">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Residential Type</label>
-                        <select {...register('studentType')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                        <select {...addRegister('studentType')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
                             <option value="DAY_SCHOLAR">Day Scholar</option>
                             <option value="HOSTELLER_BOYS">Hosteller (Boys)</option>
                             <option value="HOSTELLER_GIRLS">Hosteller (Girls)</option>
@@ -298,6 +389,96 @@ export default function StudentsPage() {
                         className="col-span-2 bg-primary py-4 rounded-2xl text-sm font-black text-white shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 disabled:opacity-50 transition-all mt-4"
                     >
                         {createMutation.isPending ? 'Processing Registration...' : 'Complete Registration'}
+                    </button>
+                </form>
+            </Modal>
+
+            {/* Edit Student Modal Content */}
+            <Modal isOpen={showEdit} onClose={() => { setShowEdit(false); setEditingStudent(null) }} title="Edit Student">
+                <form
+                    onSubmit={handleEditSubmit((d) => {
+                        if (!editingStudent?.id) return
+                        updateMutation.mutate({
+                            id: editingStudent.id,
+                            body: { ...d, year: parseInt(d.year) },
+                        })
+                    })}
+                    className="grid grid-cols-2 gap-6"
+                >
+                    <div className="col-span-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Full Name</label>
+                        <input {...editRegister('fullName')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Enrollment No</label>
+                        <input {...editRegister('enrollmentNo')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Email Identity</label>
+                        <input {...editRegister('email')} type="email" required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Student Mobile</label>
+                        <input {...editRegister('phone')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Father Name</label>
+                        <input {...editRegister('fatherName')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Father Mobile</label>
+                        <input {...editRegister('fatherMobile')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Allotted No.</label>
+                        <input {...editRegister('allottedNo')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Room No.</label>
+                        <input {...editRegister('roomNo')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Category</label>
+                        <input {...editRegister('category')} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Permanent Address</label>
+                        <textarea {...editRegister('permanentAddress')} rows={2} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Department</label>
+                        <select {...editRegister('department')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                            <option value="CSE">CSE</option>
+                            <option value="ECE">ECE</option>
+                            <option value="IT">IT</option>
+                            <option value="ME">ME</option>
+                            <option value="EE">EE</option>
+                            <option value="CE">CE</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Academic Year</label>
+                        <select {...editRegister('year')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                        </select>
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">Residential Type</label>
+                        <select {...editRegister('studentType')} required className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-text-primary focus:border-accent/40 focus:outline-none transition-all">
+                            <option value="DAY_SCHOLAR">Day Scholar</option>
+                            <option value="HOSTELLER_BOYS">Hosteller (Boys)</option>
+                            <option value="HOSTELLER_GIRLS">Hosteller (Girls)</option>
+                        </select>
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={updateMutation.isPending}
+                        className="col-span-2 bg-primary py-4 rounded-2xl text-sm font-black text-white shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 disabled:opacity-50 transition-all mt-4"
+                    >
+                        {updateMutation.isPending ? 'Saving Changes...' : 'Update Student'}
                     </button>
                 </form>
             </Modal>
@@ -335,12 +516,12 @@ export default function StudentsPage() {
             <Modal isOpen={showImport} onClose={() => setShowImport(false)} title="System Bulk Onboarding">
                 <div className="space-y-6">
                     <p className="text-sm text-text-secondary font-medium leading-relaxed bg-white/5 p-4 rounded-2xl border border-white/10">
-                        Upload a structured CSV file including: <code className="text-accent font-black">enrollmentNo</code>, <code className="text-accent font-black">fullName</code>, <code className="text-accent font-black">email</code>, department, and residential status.
+                        Upload <code className="text-accent font-black">CSV</code> or <code className="text-accent font-black">PDF</code> with student list fields like: <code className="text-accent font-black">Enrollment</code>, <code className="text-accent font-black">Student Name</code>, <code className="text-accent font-black">Father Name</code>, <code className="text-accent font-black">Student Room/Alloted</code>, <code className="text-accent font-black">Father Mobile</code>, <code className="text-accent font-black">Student Email_ID</code>, <code className="text-accent font-black">Category</code>, <code className="text-accent font-black">Permanent Address</code>, <code className="text-accent font-black">Mobile</code>.
                     </p>
                     <div className="relative group">
                         <input
                             type="file"
-                            accept=".csv"
+                            accept=".csv,.pdf"
                             onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                             className="block w-full text-xs text-text-secondary file:mr-6 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-primary file:text-white file:cursor-pointer p-2 bg-white/5 border border-dashed border-white/20 rounded-2xl hover:bg-white/10 transition-all"
                         />

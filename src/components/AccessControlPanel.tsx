@@ -24,7 +24,7 @@ export default function AccessControlPanel() {
     const [countdown, setCountdown] = useState(0)
     const [accessSearch, setAccessSearch] = useState('')
     const [accessStatus, setAccessStatus] = useState('')
-    const [accessDate, setAccessDate] = useState(new Date().toISOString().split('T')[0])
+    const [accessDate, setAccessDate] = useState('')
     const [accessPage, setAccessPage] = useState(1)
 
     const [geoForm, setGeoForm] = useState<GeofencePayload>({
@@ -203,19 +203,19 @@ export default function AccessControlPanel() {
                 </h3>
 
                 <div className="rounded-xl border border-white/10 h-44 relative overflow-hidden">
-                    <iframe 
-                        width="100%" 
-                        height="100%" 
-                        frameBorder="0" 
-                        scrolling="no" 
-                        marginHeight={0} 
-                        marginWidth={0} 
+                    <iframe
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        scrolling="no"
+                        marginHeight={0}
+                        marginWidth={0}
                         title="Geofence Map"
                         src={`https://maps.google.com/maps?q=${geoForm.center_lat},${geoForm.center_lng}&t=m&z=16&output=embed&iwloc=near`}
                         className="absolute inset-0 z-0 opacity-80 mix-blend-luminosity"
-                        style={{ filter: "invert(90%) hue-rotate(180deg) contrast(1.2)" }} 
+                        style={{ filter: "invert(90%) hue-rotate(180deg) contrast(1.2)" }}
                     ></iframe>
-                    
+
                     {/* Circle overlay to represent the geofence radius. Real map radius is tricky without API, but we provide an approximation visual */}
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                         <div

@@ -4,7 +4,7 @@ import api from '../api/axios'
 import toast from 'react-hot-toast'
 import {
     Search, Download, Filter, ChevronLeft, ChevronRight,
-    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield
+    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield, AlertTriangle
 } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import FaceRegistration from '../components/FaceRegistration'
@@ -16,7 +16,7 @@ import CurfewManager from '../components/CurfewManager' // Import the new compon
 export default function HostellersPage() {
     const queryClient = useQueryClient()
     const [search, setSearch] = useState('')
-    const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
+    const [dateFilter, setDateFilter] = useState('')
     const [directionFilter, setDirectionFilter] = useState<'ENTRY' | 'EXIT' | ''>('')
     const [page, setPage] = useState(1)
     const [apiError, setApiError] = useState<string | null>(null)
@@ -30,7 +30,7 @@ export default function HostellersPage() {
     // Fetch hosteller entry/exit logs
     const { data: logsData, isLoading: isLoadingLogs, error } = useQuery({
         queryKey: ['hosteller-logs', search, dateFilter, directionFilter, page],
-        refetchInterval: 15000,
+        refetchInterval: 30000,
         queryFn: async () => {
             try {
                 const response = await api.get('/scan/recent', {
@@ -63,7 +63,7 @@ export default function HostellersPage() {
 
     const { data: outsideData, isLoading: isLoadingOutside } = useQuery({
         queryKey: ['hostellerOutside', dateFilter],
-        refetchInterval: 15000,
+        refetchInterval: 30000,
         queryFn: async () => {
             const response = await api.get('/scan/hosteller/outside', {
                 params: {
@@ -76,7 +76,7 @@ export default function HostellersPage() {
 
     const { data: pendingPinkSlipsCount = 0 } = useQuery({
         queryKey: ['hostellerPendingPinkSlipsCount'],
-        refetchInterval: 15000,
+        refetchInterval: 30000,
         queryFn: async () => {
             const response = await api.get('/pink-slips', {
                 params: {
@@ -115,6 +115,27 @@ export default function HostellersPage() {
         },
     })
 
+    const sendStudentAlertMutation = useMutation({
+        mutationFn: async ({ studentId, studentName }: { studentId: string; studentName?: string }) => {
+            const response = await api.post('/alerts/student', {
+                studentId,
+                title: 'Hostel Re-entry Alert',
+                body: `${studentName || 'Student'}, please return to hostel and mark entry immediately.`,
+                targetId: studentId,
+                targetType: 'GENERIC',
+                screen: 'activity',
+            })
+            return response.data
+        },
+        onSuccess: () => {
+            toast.success('Alert sent to student app')
+        },
+        onError: (err: any) => {
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to send alert'
+            toast.error(errorMsg)
+        },
+    })
+
     const logs = logsData?.events || logsData || []
     const total = logsData?.total || logs.length
     const pages = Math.ceil(total / 50)
@@ -135,6 +156,38 @@ export default function HostellersPage() {
             return diffHours >= 2
         }).length
         : 0
+
+    const lateOutsideAlerts = Array.isArray(outsideData?.students)
+        ? outsideData.students
+            .map((s: any) => {
+                const seen = new Date(s.lastSeenAt)
+                const diffHours = (Date.now() - seen.getTime()) / (1000 * 60 * 60)
+                return {
+                    ...s,
+                    outsideHours: diffHours,
+                }
+            })
+            .filter((s: any) => s.outsideHours >= 2)
+            .sort((a: any, b: any) => b.outsideHours - a.outsideHours)
+        : []
+
+    const gateLoadMap = todayLogs.reduce((acc: Record<string, number>, l: any) => {
+        const gate = l.gate?.name || l.gateName || 'Main Gate'
+        acc[gate] = (acc[gate] || 0) + 1
+        return acc
+    }, {})
+    const gateLoad = Object.entries(gateLoadMap)
+        .map(([gate, count]) => ({ gate, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6)
+    const maxGateCount = gateLoad.length ? Math.max(...gateLoad.map((g) => g.count)) : 1
+
+    const formatOutsideDuration = (hours: number) => {
+        const h = Math.floor(hours)
+        const m = Math.floor((hours - h) * 60)
+        if (h <= 0) return `${m}m`
+        return `${h}h ${m}m`
+    }
 
     const getActiveCurfewWindow = () => {
         if (!curfewData) return "Loading...";
@@ -164,7 +217,8 @@ export default function HostellersPage() {
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
         const a = document.createElement('a')
         a.href = url
-        a.download = `hosteller-logs-${new Date().toISOString().split('T')[0]}.csv`
+        const exportDate = dateFilter || new Date().toLocaleDateString('en-CA')
+        a.download = `hosteller-logs-${exportDate}.csv`
         a.click()
         URL.revokeObjectURL(url)
     }
@@ -243,6 +297,72 @@ export default function HostellersPage() {
                         <p className="text-text-primary text-2xl font-black mt-0.5">{stat.value}</p>
                     </div>
                 ))}
+            </div>
+
+            {/* Hosteller Operations Insights */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <section className="glass-card p-5 border border-warning/30 bg-warning/5">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-text-primary">Late Re-Entry Alerts</h3>
+                        <div className="flex items-center gap-1 text-warning text-xs font-black">
+                            <AlertTriangle size={14} />
+                            {lateOutsideAlerts.length}
+                        </div>
+                    </div>
+
+                    {lateOutsideAlerts.length === 0 ? (
+                        <p className="text-xs text-text-secondary">No student has been outside for more than 2 hours.</p>
+                    ) : (
+                        <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                            {lateOutsideAlerts.slice(0, 8).map((item: any) => (
+                                <div key={item.student?.id} className="flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+                                    <div>
+                                        <p className="text-sm font-bold text-text-primary">{item.student?.fullName}</p>
+                                        <p className="text-[11px] text-text-secondary">{item.student?.enrollmentNo} • {item.gateName || 'Main Gate'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-warning">{formatOutsideDuration(item.outsideHours)}</span>
+                                        <button
+                                            onClick={() => sendStudentAlertMutation.mutate({ studentId: item.student?.id, studentName: item.student?.fullName })}
+                                            disabled={sendStudentAlertMutation.isPending || !item.student?.id}
+                                            className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-warning/20 text-warning hover:bg-warning/30 disabled:opacity-50"
+                                        >
+                                            Alert
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                <section className="glass-card p-5 border border-primary/30 bg-primary/5">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-text-primary">Gate-Wise Hosteller Load</h3>
+                        <span className="text-[11px] text-text-secondary">Today</span>
+                    </div>
+
+                    {gateLoad.length === 0 ? (
+                        <p className="text-xs text-text-secondary">No gate activity recorded for selected date.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {gateLoad.map((item) => (
+                                <div key={item.gate} className="space-y-1">
+                                    <div className="flex items-center justify-between text-[11px]">
+                                        <span className="text-text-primary font-bold truncate pr-3">{item.gate}</span>
+                                        <span className="text-text-secondary font-black">{item.count}</span>
+                                    </div>
+                                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-primary rounded-full"
+                                            style={{ width: `${Math.max(8, Math.round((item.count / maxGateCount) * 100))}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
             </div>
 
             {/* ═══ Face Recognition Section ═══ */}
@@ -463,8 +583,8 @@ export default function HostellersPage() {
                 ) : logs.length === 0 ? (
                     <div className="text-center py-12">
                         <Users className="mx-auto text-text-secondary/50 mb-4" size={48} />
-                        <p className="text-text-secondary">No hosteller logs found for the selected date</p>
-                        <p className="text-text-secondary/50 text-sm mt-1">Try changing the date or checking API connection</p>
+                        <p className="text-text-secondary">No hosteller logs found for the selected filters</p>
+                        <p className="text-text-secondary/50 text-sm mt-1">Try changing filters or checking API connection</p>
                     </div>
                 ) : (
                     <table className="w-full" id="hosteller-logs-table">

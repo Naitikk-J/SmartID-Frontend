@@ -8,23 +8,23 @@ import toast from 'react-hot-toast'
 
 export default function LiveFeedPage() {
     const { liveFeed: realTimeFeed, connected } = useSocketStore()
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+    const [selectedDate, setSelectedDate] = useState('')
     const [page, setPage] = useState(1)
 
-    const isToday = selectedDate === new Date().toISOString().split('T')[0]
+    const isToday = selectedDate.length === 0
 
     const handleDownload = async () => {
         try {
             toast.loading('Preparing export...', { id: 'csv-export' })
             const response = await api.get('/scan/export', {
-                params: { date: selectedDate },
+                params: { date: selectedDate || undefined },
                 responseType: 'blob'
             })
 
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
-            link.setAttribute('download', `scan_logs_${selectedDate}.csv`)
+            link.setAttribute('download', `scan_logs_${selectedDate || new Date().toLocaleDateString('en-CA')}.csv`)
             document.body.appendChild(link)
             link.click()
             link.remove()
@@ -37,7 +37,7 @@ export default function LiveFeedPage() {
     const { data: historyData, isLoading } = useQuery({
         queryKey: ['scan-history', selectedDate, page],
         queryFn: () => api.get('/scan/recent', {
-            params: { date: selectedDate, page, limit: 50 }
+            params: { date: selectedDate || undefined, page, limit: 50 }
         }).then(r => r.data.data),
     })
 
