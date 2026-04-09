@@ -60,7 +60,7 @@ export default function AccessControlPanel() {
     } = useQuery({
         queryKey: ['access-live-qr', selectedGateId],
         enabled: Boolean(selectedGateId),
-        refetchInterval: 5000,
+        refetchInterval: 20000,
         queryFn: async () => {
             const response = await api.get('/qr/generate', {
                 params: { gate_id: selectedGateId },
@@ -184,7 +184,7 @@ export default function AccessControlPanel() {
                                     {countdown}s
                                 </p>
                             </div>
-                            <p className="text-xs text-text-secondary">Auto-refresh every 5s. Share only with students present at this gate.</p>
+                            <p className="text-xs text-text-secondary">Auto-refresh every 20s. Share only with students present at this gate.</p>
                         </div>
                     )}
                 </div>
