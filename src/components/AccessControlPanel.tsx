@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { MapPin, RefreshCw, ShieldAlert, Timer, TriangleAlert } from 'lucide-react'
+import { LocateFixed, MapPin, RefreshCw, ShieldAlert, Timer, TriangleAlert } from 'lucide-react'
 import api from '../api/axios'
 
 type Gate = {
@@ -11,10 +11,17 @@ type Gate = {
 }
 
 type GeofencePayload = {
-    center_lat: number
-    center_lng: number
+    center_lat: number | null
+    center_lng: number | null
     radius: number
     shape?: 'CIRCLE' | 'POLYGON'
+}
+
+const emptyGeofenceForm: GeofencePayload = {
+    center_lat: null,
+    center_lng: null,
+    radius: 120,
+    shape: 'CIRCLE',
 }
 
 export default function AccessControlPanel() {
@@ -26,13 +33,9 @@ export default function AccessControlPanel() {
     const [accessStatus, setAccessStatus] = useState('')
     const [accessDate, setAccessDate] = useState('')
     const [accessPage, setAccessPage] = useState(1)
+    const [geoFormHint, setGeoFormHint] = useState('')
 
-    const [geoForm, setGeoForm] = useState<GeofencePayload>({
-        center_lat: 23.2599,
-        center_lng: 77.4126,
-        radius: 80,
-        shape: 'CIRCLE',
-    })
+    const [geoForm, setGeoForm] = useState<GeofencePayload>(emptyGeofenceForm)
 
     const { data: gates = [], isLoading: isLoadingGates } = useQuery({
         queryKey: ['access-gates'],
@@ -52,6 +55,9 @@ export default function AccessControlPanel() {
         () => gates.find((gate) => gate.id === selectedGateId),
         [gates, selectedGateId],
     )
+
+    const hasCoordinates = Number.isFinite(geoForm.center_lat) && Number.isFinite(geoForm.center_lng)
+    const canSaveGeofence = Boolean(selectedGateId) && hasCoordinates
 
     const {
         data: liveQr,
@@ -97,27 +103,73 @@ export default function AccessControlPanel() {
     })
 
     useEffect(() => {
+        setGeoForm(emptyGeofenceForm)
+        setGeoFormHint('')
+    }, [selectedGateId])
+
+    useEffect(() => {
         const geo = geofenceData?.geofence
-        if (!geo) return
-        setGeoForm((prev) => ({
-            ...prev,
-            center_lat: Number(geo.center_lat ?? prev.center_lat),
-            center_lng: Number(geo.center_lng ?? prev.center_lng),
-            radius: Number(geo.radius ?? prev.radius),
+        if (!geo) {
+            setGeoForm(emptyGeofenceForm)
+            return
+        }
+
+        setGeoForm({
+            center_lat: Number(geo.center_lat),
+            center_lng: Number(geo.center_lng),
+            radius: Number(geo.radius ?? 120),
             shape: geo.shape || 'CIRCLE',
-        }))
+        })
     }, [geofenceData])
+
+    const useCurrentBrowserLocation = () => {
+        if (!navigator.geolocation) {
+            setGeoFormHint('Browser location is not available on this device.')
+            return
+        }
+
+        setGeoFormHint('Fetching your current location...')
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setGeoForm((prev) => ({
+                    ...prev,
+                    center_lat: Number(position.coords.latitude.toFixed(6)),
+                    center_lng: Number(position.coords.longitude.toFixed(6)),
+                }))
+                setGeoFormHint('Current location loaded. Save geofence to apply.')
+            },
+            () => {
+                setGeoFormHint('Unable to fetch location. Enable browser location permission and retry.')
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            },
+        )
+    }
 
     const saveGeofenceMutation = useMutation({
         mutationFn: async () => {
+            if (!canSaveGeofence) {
+                throw new Error('Set valid center latitude and longitude before saving geofence.')
+            }
+
             return api.put('/access/geofence', {
                 gateId: selectedGateId,
-                ...geoForm,
+                center_lat: Number(geoForm.center_lat),
+                center_lng: Number(geoForm.center_lng),
+                radius: Number(geoForm.radius),
+                shape: geoForm.shape || 'CIRCLE',
             })
         },
         onSuccess: () => {
+            setGeoFormHint('Geofence saved from Hosteller page settings.')
             queryClient.invalidateQueries({ queryKey: ['access-geofence', selectedGateId] })
             queryClient.invalidateQueries({ queryKey: ['access-gates'] })
+        },
+        onError: (error: any) => {
+            setGeoFormHint(error?.response?.data?.error || 'Unable to save geofence. Please retry.')
         },
     })
 
@@ -203,49 +255,76 @@ export default function AccessControlPanel() {
                 </h3>
 
                 <div className="rounded-xl border border-white/10 h-44 relative overflow-hidden">
-                    <iframe
-                        width="100%"
-                        height="100%"
-                        frameBorder="0"
-                        scrolling="no"
-                        marginHeight={0}
-                        marginWidth={0}
-                        title="Geofence Map"
-                        src={`https://maps.google.com/maps?q=${geoForm.center_lat},${geoForm.center_lng}&t=m&z=16&output=embed&iwloc=near`}
-                        className="absolute inset-0 z-0 opacity-80 mix-blend-luminosity"
-                        style={{ filter: "invert(90%) hue-rotate(180deg) contrast(1.2)" }}
-                    ></iframe>
+                    {hasCoordinates ? (
+                        <>
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                scrolling="no"
+                                marginHeight={0}
+                                marginWidth={0}
+                                title="Geofence Map"
+                                src={`https://maps.google.com/maps?q=${geoForm.center_lat},${geoForm.center_lng}&t=m&z=16&output=embed&iwloc=near`}
+                                className="absolute inset-0 z-0 opacity-80 mix-blend-luminosity"
+                                style={{ filter: 'invert(90%) hue-rotate(180deg) contrast(1.2)' }}
+                            />
 
-                    {/* Circle overlay to represent the geofence radius. Real map radius is tricky without API, but we provide an approximation visual */}
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                        <div
-                            className="rounded-full border border-accent/70 bg-accent/20 transition-all duration-300 pointer-events-none"
-                            style={{
-                                width: `${Math.min(180, Math.max(30, geoForm.radius * 2))}px`,
-                                height: `${Math.min(180, Math.max(30, geoForm.radius * 2))}px`,
-                            }}
-                        />
-                    </div>
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                                <div
+                                    className="rounded-full border border-accent/70 bg-accent/20 transition-all duration-300 pointer-events-none"
+                                    style={{
+                                        width: `${Math.min(180, Math.max(30, geoForm.radius * 2))}px`,
+                                        height: `${Math.min(180, Math.max(30, geoForm.radius * 2))}px`,
+                                    }}
+                                />
+                            </div>
 
-                    <div className="absolute bottom-2 left-2 text-[11px] font-bold text-white bg-black/60 backdrop-blur-md px-2 py-1 rounded pointer-events-none z-10">
-                        {selectedGate?.name} Location
-                    </div>
+                            <div className="absolute bottom-2 left-2 text-[11px] font-bold text-white bg-black/60 backdrop-blur-md px-2 py-1 rounded pointer-events-none z-10">
+                                {selectedGate?.name} Location
+                            </div>
+                        </>
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center text-center text-xs text-text-secondary px-6">
+                            Set center latitude and longitude from Hosteller page, or use current browser location.
+                        </div>
+                    )}
                 </div>
+
+                <button
+                    onClick={useCurrentBrowserLocation}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-text-primary font-semibold flex items-center justify-center gap-2"
+                >
+                    <LocateFixed size={16} />
+                    Use Current Browser Location
+                </button>
 
                 <div className="grid grid-cols-2 gap-2">
                     <input
                         type="number"
                         step="0.000001"
-                        value={geoForm.center_lat}
-                        onChange={(e) => setGeoForm((prev) => ({ ...prev, center_lat: Number(e.target.value) }))}
+                        value={geoForm.center_lat ?? ''}
+                        onChange={(e) => {
+                            const value = e.target.value.trim()
+                            setGeoForm((prev) => ({
+                                ...prev,
+                                center_lat: value === '' ? null : Number(value),
+                            }))
+                        }}
                         className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-text-primary"
                         placeholder="Center lat"
                     />
                     <input
                         type="number"
                         step="0.000001"
-                        value={geoForm.center_lng}
-                        onChange={(e) => setGeoForm((prev) => ({ ...prev, center_lng: Number(e.target.value) }))}
+                        value={geoForm.center_lng ?? ''}
+                        onChange={(e) => {
+                            const value = e.target.value.trim()
+                            setGeoForm((prev) => ({
+                                ...prev,
+                                center_lng: value === '' ? null : Number(value),
+                            }))
+                        }}
                         className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-text-primary"
                         placeholder="Center lng"
                     />
@@ -265,15 +344,16 @@ export default function AccessControlPanel() {
 
                 <button
                     onClick={() => saveGeofenceMutation.mutate()}
-                    disabled={!selectedGateId || saveGeofenceMutation.isPending || isGeofenceLoading}
+                    disabled={!canSaveGeofence || saveGeofenceMutation.isPending || isGeofenceLoading}
                     className="w-full px-4 py-2.5 rounded-xl bg-accent text-white font-bold disabled:opacity-50"
                 >
                     {saveGeofenceMutation.isPending ? 'Saving...' : 'Save Geofence'}
                 </button>
 
                 <p className="text-xs text-text-secondary">
-                    Current status: {isGeofenceLoading ? 'Loading...' : geofenceData?.geofence ? 'Configured' : 'Not configured'}
+                    Current status: {isGeofenceLoading ? 'Loading...' : geofenceData?.geofence ? 'Configured from Hosteller page' : 'Not configured'}
                 </p>
+                {geoFormHint && <p className="text-xs text-warning">{geoFormHint}</p>}
             </section>
 
             <section className="xl:col-span-3 rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
