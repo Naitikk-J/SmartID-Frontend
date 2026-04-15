@@ -18,6 +18,7 @@ import ReportsPage from './pages/ReportsPage'
 import HealthPage from './pages/HealthPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AuditLogPage from './pages/AuditLogPage'
+import StudentAuthLogsPage from './pages/StudentAuthLogsPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
     const token = useAuthStore((s) => s.token)
@@ -71,6 +72,7 @@ function DashboardLayout() {
                             <Route path="/health" element={<PermissionRoute permission="Health"><HealthPage /></PermissionRoute>} />
                             <Route path="/admin-users" element={<PermissionRoute permission="Admin Users"><AdminUsersPage /></PermissionRoute>} />
                             <Route path="/audit-log" element={<PermissionRoute permission="Audit Log"><AuditLogPage /></PermissionRoute>} />
+                            <Route path="/student-auth-logs" element={<PermissionRoute permission="Student Auth Logs"><StudentAuthLogsPage /></PermissionRoute>} />
                             <Route path="*" element={<Navigate to={getRoleHome(role)} replace />} />
                         </Routes>
                     </div>

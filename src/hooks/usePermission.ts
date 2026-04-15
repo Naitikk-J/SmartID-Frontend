@@ -15,6 +15,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     Health: ['SUPER_ADMIN', 'HOD'],
     'Admin Users': ['SUPER_ADMIN'],
     'Audit Log': ['SUPER_ADMIN'],
+    'Student Auth Logs': ['SUPER_ADMIN'],
 }
 
 export function canRoleView(role: string, item: string): boolean {

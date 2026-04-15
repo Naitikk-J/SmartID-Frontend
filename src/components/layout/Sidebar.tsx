@@ -21,6 +21,7 @@ const navItems = [
     { path: '/health', label: 'Health', icon: Heart, permission: 'Health' },
     { path: '/admin-users', label: 'Admin Users', icon: Shield, permission: 'Admin Users' },
     { path: '/audit-log', label: 'Audit Log', icon: ScrollText, permission: 'Audit Log' },
+    { path: '/student-auth-logs', label: 'Student Auth Logs', icon: Shield, permission: 'Student Auth Logs' },
 ]
 
 export default function Sidebar() {

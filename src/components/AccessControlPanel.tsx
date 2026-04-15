@@ -229,7 +229,6 @@ export default function AccessControlPanel() {
                             <div className="mx-auto w-fit bg-white p-3 rounded-xl">
                                 <QRCodeSVG value={liveQr.qr_token} size={176} />
                             </div>
-                            <p className="text-xs text-text-secondary break-all">{liveQr.qr_token}</p>
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-text-secondary">TTL</p>
                                 <p className={`text-sm font-bold ${countdown <= 3 ? 'text-warning' : 'text-success'}`}>
