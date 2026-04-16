@@ -4,7 +4,7 @@ import api from '../api/axios'
 import toast from 'react-hot-toast'
 import {
     Search, Download, Filter, ChevronLeft, ChevronRight,
-    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield, AlertTriangle
+    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield, AlertTriangle, Ticket
 } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import FaceRegistration from '../components/FaceRegistration'
@@ -26,6 +26,24 @@ export default function HostellersPage() {
     const [showLiveDetection, setShowLiveDetection] = useState(false)
     const [activeFaceTab, setActiveFaceTab] = useState<'NONE' | 'LIVE' | 'REGISTER'>('NONE')
     const [showCurfewManager, setShowCurfewManager] = useState(false) // State for modal
+    const [ticketSearch, setTicketSearch] = useState('')
+    const [ticketResult, setTicketResult] = useState<any | null>(null)
+    const [insightsUnavailable, setInsightsUnavailable] = useState(false)
+
+    const resolveTicketId = (item: any) => {
+        const apiTicket = item?.ticketId?.toString()?.trim()
+        if (apiTicket) return apiTicket.toUpperCase()
+
+        const rawId = item?.id?.toString()?.trim() || ''
+        if (!rawId) return 'N/A'
+
+        let hash = 0
+        const source = rawId.toUpperCase()
+        for (let i = 0; i < source.length; i += 1) {
+            hash = (hash * 31 + source.charCodeAt(i)) % 10000
+        }
+        return `PS-${String(hash).padStart(4, '0')}`
+    }
 
     // Fetch hosteller entry/exit logs
     const { data: logsData, isLoading: isLoadingLogs, error } = useQuery({
@@ -71,6 +89,36 @@ export default function HostellersPage() {
                 },
             })
             return response.data.data
+        },
+    })
+
+    const { data: insightsData, isLoading: isLoadingInsights } = useQuery({
+        queryKey: ['hostellerInsights'],
+        enabled: !insightsUnavailable,
+        refetchInterval: 60000,
+        retry: (failureCount, err: any) => {
+            if (err?.response?.status === 404) return false
+            return failureCount < 2
+        },
+        queryFn: async () => {
+            try {
+                const response = await api.get('/admin/hosteller-insights')
+                setInsightsUnavailable(false)
+                return response.data.data
+            } catch (err: any) {
+                if (err?.response?.status === 404) {
+                    setInsightsUnavailable(true)
+                    setApiError('Hosteller insights API is not available on current backend deployment. Redeploy backend to enable this section.')
+                    return {
+                        highRiskStudents: [],
+                        lateReturn: {
+                            pendingCount: 0,
+                            pendingRequests: [],
+                        },
+                    }
+                }
+                throw err
+            }
         },
     })
 
@@ -136,6 +184,40 @@ export default function HostellersPage() {
         },
     })
 
+    const ticketLookupMutation = useMutation({
+        mutationFn: async (ticketId: string) => {
+            const response = await api.get(`/pink-slips/ticket/${encodeURIComponent(ticketId)}`)
+            return response.data.data
+        },
+        onSuccess: (data) => {
+            setTicketResult(data)
+            toast.success('Pink slip ticket found')
+        },
+        onError: (err: any) => {
+            setTicketResult(null)
+            const errorMsg = err.response?.data?.error || err.message || 'Ticket lookup failed'
+            toast.error(errorMsg)
+        },
+    })
+
+    const resolveLateReturnMutation = useMutation({
+        mutationFn: async ({ id, status, adminNote }: { id: string; status: 'ACKNOWLEDGED' | 'RESOLVED' | 'REJECTED'; adminNote?: string }) => {
+            const response = await api.patch(`/late-return/${id}/status`, {
+                status,
+                adminNote,
+            })
+            return response.data
+        },
+        onSuccess: (_, variables) => {
+            toast.success(`Late return marked ${variables.status.toLowerCase()}`)
+            queryClient.invalidateQueries({ queryKey: ['hostellerInsights'] })
+        },
+        onError: (err: any) => {
+            const errorMsg = err.response?.data?.error || err.message || 'Failed to update late return request'
+            toast.error(errorMsg)
+        },
+    })
+
     const logs = logsData?.events || logsData || []
     const total = logsData?.total || logs.length
     const pages = Math.ceil(total / 50)
@@ -181,6 +263,9 @@ export default function HostellersPage() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 6)
     const maxGateCount = gateLoad.length ? Math.max(...gateLoad.map((g) => g.count)) : 1
+    const highRiskStudents = Array.isArray(insightsData?.highRiskStudents) ? insightsData.highRiskStudents : []
+    const pendingLateReturnCount = Number(insightsData?.lateReturn?.pendingCount || 0)
+    const pendingLateReturns = Array.isArray(insightsData?.lateReturn?.pendingRequests) ? insightsData.lateReturn.pendingRequests : []
 
     const formatOutsideDuration = (hours: number) => {
         const h = Math.floor(hours)
@@ -287,6 +372,10 @@ export default function HostellersPage() {
                     {
                         icon: <Users size={20} />, label: 'Pending Slips', value: pendingPinkSlipsCount,
                         color: 'from-sky-500/20 to-blue-500/20', textColor: 'text-primary', borderColor: 'border-primary/20',
+                    },
+                    {
+                        icon: <AlertTriangle size={20} />, label: 'Late Return Pending', value: isLoadingInsights ? '...' : pendingLateReturnCount,
+                        color: 'from-rose-500/20 to-red-500/20', textColor: 'text-warning', borderColor: 'border-warning/20',
                     },
                 ].map((stat) => (
                     <div key={stat.label}
@@ -465,6 +554,58 @@ export default function HostellersPage() {
                 </div>
             </div>
 
+            {/* Pink Slip Ticket Checker */}
+            <div className="glass-card p-6 border border-accent/20 bg-accent/5">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-accent/20 rounded-lg text-accent">
+                            <Ticket size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-text-primary leading-tight text-lg">Pink Slip Ticket Checker</h3>
+                            <p className="text-xs text-text-secondary">Enter ticket id (example: PS-1234) to fetch complete details</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mb-4">
+                    <input
+                        type="text"
+                        value={ticketSearch}
+                        onChange={(e) => setTicketSearch(e.target.value)}
+                        placeholder="PS-... ticket id"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-text-primary focus:outline-none focus:border-accent/50"
+                    />
+                    <button
+                        onClick={() => {
+                            const ticketId = ticketSearch.trim()
+                            if (!ticketId) {
+                                toast.error('Please enter ticket id')
+                                return
+                            }
+                            ticketLookupMutation.mutate(ticketId)
+                        }}
+                        disabled={ticketLookupMutation.isPending}
+                        className="px-5 py-3 rounded-xl bg-accent text-white text-xs font-black uppercase tracking-widest hover:bg-accent/90 disabled:opacity-60"
+                    >
+                        {ticketLookupMutation.isPending ? 'Checking...' : 'Check Ticket'}
+                    </button>
+                </div>
+
+                {ticketResult && (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
+                        <p className="text-xs text-text-secondary">Ticket: <span className="text-text-primary font-black">{resolveTicketId(ticketResult)}</span></p>
+                        <p className="text-sm text-text-primary font-bold">{ticketResult.student?.fullName || 'Unknown Student'}</p>
+                        <p className="text-xs text-text-secondary">{ticketResult.student?.enrollmentNo || 'N/A'} • {ticketResult.student?.department || 'N/A'} • {String(ticketResult.student?.studentType || '').split('_').join(' ')}</p>
+                        <p className="text-xs text-text-secondary">From: {new Date(ticketResult.fromDate).toLocaleString()}</p>
+                        <p className="text-xs text-text-secondary">To: {new Date(ticketResult.toDate).toLocaleString()}</p>
+                        <p className="text-xs text-text-secondary">Status: <span className="font-black text-text-primary">{ticketResult.status}</span></p>
+                        {ticketResult.remarks && <p className="text-xs text-text-secondary">Remarks: {ticketResult.remarks}</p>}
+                        {ticketResult.approvedBy?.name && <p className="text-xs text-text-secondary">Processed by: {ticketResult.approvedBy.name}</p>}
+                    </div>
+                )}
+            </div>
+
             {/* Students Currently Outside */}
             <div className="glass-card p-6 border border-warning/30 bg-warning/5">
                 <div className="flex items-start justify-between gap-4 mb-4">
@@ -508,6 +649,92 @@ export default function HostellersPage() {
                                     >
                                         {manualEntryMutation.isPending ? 'Marking...' : 'Mark Manual Entry'}
                                     </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* High-Risk Hosteller List */}
+            <div className="glass-card p-6 border border-error/20 bg-error/5">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 className="font-bold text-text-primary leading-tight text-lg">High-Risk Students (Weekly Pattern)</h3>
+                        <p className="text-xs text-text-secondary">Repeated late entries + unusual movement score</p>
+                    </div>
+                    <p className="text-sm font-black text-error">{isLoadingInsights ? '...' : highRiskStudents.length}</p>
+                </div>
+
+                {insightsUnavailable && (
+                    <p className="text-xs text-warning mb-3">Insights API not found on current backend deployment. Deploy latest backend release to enable high-risk and late-return analytics.</p>
+                )}
+
+                {isLoadingInsights ? (
+                    <div className="flex justify-center items-center h-16">
+                        <LoadingSpinner />
+                    </div>
+                ) : highRiskStudents.length === 0 ? (
+                    <p className="text-sm text-text-secondary">No high-risk students detected this week.</p>
+                ) : (
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {highRiskStudents.slice(0, 20).map((item: any) => (
+                            <div key={item.student?.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                                <div>
+                                    <p className="text-sm font-bold text-text-primary">{item.student?.fullName}</p>
+                                    <p className="text-xs text-text-secondary">{item.student?.enrollmentNo} • {item.student?.department || 'N/A'}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-black text-warning">Risk: {item.riskScore}</p>
+                                    <p className="text-[11px] text-text-secondary">Late In: {item.lateEntries} | Late Out: {item.lateExits} | Unusual: {item.unusualMovement}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="glass-card p-6 border border-warning/20 bg-warning/5">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 className="font-bold text-text-primary leading-tight text-lg">Late Return Requests</h3>
+                        <p className="text-xs text-text-secondary">Student ETA + location alerts requiring warden action</p>
+                    </div>
+                    <p className="text-sm font-black text-warning">{isLoadingInsights ? '...' : pendingLateReturns.length}</p>
+                </div>
+
+                {isLoadingInsights ? (
+                    <div className="flex justify-center items-center h-16">
+                        <LoadingSpinner />
+                    </div>
+                ) : pendingLateReturns.length === 0 ? (
+                    <p className="text-sm text-text-secondary">No pending late return requests.</p>
+                ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {pendingLateReturns.slice(0, 30).map((item: any) => (
+                            <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-bold text-text-primary">{item.student?.fullName}</p>
+                                        <p className="text-xs text-text-secondary">{item.student?.enrollmentNo} • ETA: {new Date(item.eta).toLocaleString()}</p>
+                                        <p className="text-xs text-text-secondary mt-1">Reason: {item.reason}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => resolveLateReturnMutation.mutate({ id: item.id, status: 'ACKNOWLEDGED', adminNote: 'Request noted. Return safely and contact warden if delayed further.' })}
+                                            disabled={resolveLateReturnMutation.isPending}
+                                            className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-success/20 text-success hover:bg-success/30 disabled:opacity-50"
+                                        >
+                                            Acknowledge
+                                        </button>
+                                        <button
+                                            onClick={() => resolveLateReturnMutation.mutate({ id: item.id, status: 'REJECTED', adminNote: 'Please contact warden immediately.' })}
+                                            disabled={resolveLateReturnMutation.isPending}
+                                            className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-error/20 text-error hover:bg-error/30 disabled:opacity-50"
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
