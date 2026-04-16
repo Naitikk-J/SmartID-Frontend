@@ -99,7 +99,7 @@ export default function EventsPage() {
     const [participantRows, setParticipantRows] = useState<ParticipantImportRow[]>([])
     const [recipientInput, setRecipientInput] = useState('')
     const [stayQrToken, setStayQrToken] = useState<string>('')
-    const [messQrRows, setMessQrRows] = useState<Array<{ mealNumber: number; mealLabel: string; qrToken: string }>>([])
+    const [messQrToken, setMessQrToken] = useState<string>('')
     const [form, setForm] = useState({
         name: '',
         description: '',
@@ -217,6 +217,22 @@ export default function EventsPage() {
     }, [participantRows])
 
     const onImportFile = async (file: File): Promise<void> => {
+        const lowerName = file.name.toLowerCase()
+        const isPdf = lowerName.endsWith('.pdf') || file.type.toLowerCase().includes('pdf')
+
+        if (isPdf) {
+            const formData = new FormData()
+            formData.append('file', file)
+            const response = await api.post('/events/participants/parse-pdf', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            })
+            const parsedRows = (response.data?.data?.participants || []) as Record<string, unknown>[]
+            const normalized = normalizeParticipantRows(parsedRows)
+            setParticipantRows(normalized)
+            toast.success(`Loaded ${normalized.length} participants from PDF`)
+            return
+        }
+
         const buffer = await file.arrayBuffer()
         const workbook = XLSX.read(buffer, { type: 'array' })
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -266,12 +282,14 @@ export default function EventsPage() {
     const loadMessQr = async (): Promise<void> => {
         if (!selectedEventId) return
         const response = await api.get(`/events/${selectedEventId}/mess/qr`)
-        const rows = (response.data?.data?.rules || []).map((rule: any) => ({
-            mealNumber: Number(rule.mealNumber),
-            mealLabel: String(rule.mealLabel || `Meal ${rule.mealNumber}`),
-            qrToken: String(rule.qrToken || ''),
-        }))
-        setMessQrRows(rows)
+        const shared = String(response.data?.data?.sharedQrToken || '')
+        if (shared) {
+            setMessQrToken(shared)
+            return
+        }
+
+        const firstRule = (response.data?.data?.rules || [])[0] as { qrToken?: string } | undefined
+        setMessQrToken(String(firstRule?.qrToken || ''))
     }
 
     if (isLoading) return <LoadingSpinner />
@@ -385,15 +403,10 @@ export default function EventsPage() {
                         </div>
                     )}
 
-                    {messQrRows.length > 0 && (
+                    {messQrToken && (
                         <div className="bg-bg-dark border border-border rounded-lg p-3 space-y-2">
-                            <p className="text-xs text-text-secondary">Static Mess QR Tokens</p>
-                            {messQrRows.map((row) => (
-                                <div key={`${row.mealNumber}-${row.mealLabel}`} className="text-xs">
-                                    <p className="font-semibold">Meal {row.mealNumber}: {row.mealLabel}</p>
-                                    <p className="font-mono break-all text-text-secondary">{row.qrToken}</p>
-                                </div>
-                            ))}
+                            <p className="text-xs text-text-secondary">Static Mess QR Token (Single QR for all meals)</p>
+                            <p className="text-xs break-all font-mono text-text-secondary">{messQrToken}</p>
                         </div>
                     )}
 
@@ -533,7 +546,7 @@ export default function EventsPage() {
                         </div>
                         <input
                             type="file"
-                            accept=".csv,.xlsx,.xls"
+                            accept=".csv,.xlsx,.xls,.pdf"
                             onChange={async (e) => {
                                 const file = e.target.files?.[0]
                                 if (!file) return
@@ -613,7 +626,7 @@ export default function EventsPage() {
                         <p className="text-sm font-semibold">Step 1: Import CSV / Excel (Email=Login ID, Phone=Password)</p>
                         <input
                             type="file"
-                            accept=".csv,.xlsx,.xls"
+                            accept=".csv,.xlsx,.xls,.pdf"
                             onChange={async (e) => {
                                 const file = e.target.files?.[0]
                                 if (!file) return
