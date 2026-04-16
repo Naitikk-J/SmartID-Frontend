@@ -1,11 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import api from '../api/axios'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatCard from '../components/ui/StatCard'
 import { BarChart3, Users, DoorOpen } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
+interface EventLite {
+    id: string
+    name: string
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+}
+
 export default function ReportsPage() {
+    const [selectedEventId, setSelectedEventId] = useState<string>('')
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10))
+
     const { data: occupancy, isLoading } = useQuery({
         queryKey: ['reports-occupancy'],
         queryFn: () => api.get('/reports/campus-occupancy').then((r) => r.data.data),
@@ -15,6 +35,24 @@ export default function ReportsPage() {
         queryKey: ['reports-gates'],
         queryFn: () => api.get('/reports/gate-activity').then((r) => r.data.data.activity),
     })
+
+    const { data: events } = useQuery<EventLite[]>({
+        queryKey: ['events-lite-for-reports'],
+        queryFn: () => api.get('/events').then((r) => r.data.data.events as EventLite[]),
+    })
+
+    const resolvedEventId = useMemo(() => selectedEventId || events?.[0]?.id || '', [events, selectedEventId])
+
+    const downloadEventCsv = async (kind: 'stay' | 'meal' | 'combined'): Promise<void> => {
+        if (!resolvedEventId) return
+        const response = await api.get(`/events/${resolvedEventId}/reports/daily-csv`, {
+            params: { date: selectedDate, kind },
+            responseType: 'blob',
+        })
+        const eventName = events?.find((event) => event.id === resolvedEventId)?.name || 'event'
+        const fileName = `${eventName}_${selectedDate}_${kind}.csv`.replace(/\s+/g, '_')
+        downloadBlob(response.data as Blob, fileName)
+    }
 
     if (isLoading) return <LoadingSpinner />
 
@@ -86,6 +124,38 @@ export default function ReportsPage() {
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            <div className="bg-bg-card rounded-xl border border-border p-6 space-y-4">
+                <h3 className="text-lg font-semibold">Event Day-wise CSV Downloads</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <select
+                        value={resolvedEventId}
+                        onChange={(e) => setSelectedEventId(e.target.value)}
+                        className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
+                    >
+                        {(events || []).map((event) => (
+                            <option key={event.id} value={event.id}>{event.name}</option>
+                        ))}
+                    </select>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
+                    />
+                    <button
+                        onClick={() => api.post(`/events/${resolvedEventId}/reports/send-daily`, { date: selectedDate })}
+                        className="bg-warning/20 text-warning rounded px-3 py-2 text-sm"
+                    >
+                        Trigger Daily Mail
+                    </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={() => downloadEventCsv('stay')} className="px-3 py-2 rounded bg-bg-hover text-sm">Download Stay CSV</button>
+                    <button onClick={() => downloadEventCsv('meal')} className="px-3 py-2 rounded bg-bg-hover text-sm">Download Meal CSV</button>
+                    <button onClick={() => downloadEventCsv('combined')} className="px-3 py-2 rounded bg-bg-hover text-sm">Download Combined CSV</button>
                 </div>
             </div>
         </div>
