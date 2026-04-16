@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import api from '../api/axios'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import Modal from '../components/ui/Modal'
@@ -21,6 +21,7 @@ interface EventItem {
     participantsCount?: number
     stayScansCount?: number
     mealScansCount?: number
+    maxMealsPerParticipant?: number | null
 }
 
 interface ParticipantImportRow {
@@ -33,12 +34,9 @@ interface ParticipantImportRow {
     studentType?: string
 }
 
-interface MessRuleInput {
-    mealNumber: number
-    mealLabel: string
-    startTime: string
-    endTime: string
-    isActive: boolean
+interface MealEditDraft {
+    maxMealsAllowed: string
+    mealsConsumed: string
 }
 
 function toIso(date: string, time?: string): string {
@@ -100,6 +98,8 @@ export default function EventsPage() {
     const [recipientInput, setRecipientInput] = useState('')
     const [stayQrToken, setStayQrToken] = useState<string>('')
     const [messQrToken, setMessQrToken] = useState<string>('')
+    const [globalMealLimitInput, setGlobalMealLimitInput] = useState('')
+    const [participantMealDrafts, setParticipantMealDrafts] = useState<Record<string, MealEditDraft>>({})
     const [form, setForm] = useState({
         name: '',
         description: '',
@@ -110,11 +110,6 @@ export default function EventsPage() {
         hostelGateLabel: 'Event Hostel Gate',
         timezone: 'Asia/Kolkata',
     })
-    const [messRules, setMessRules] = useState<MessRuleInput[]>([
-        { mealNumber: 1, mealLabel: 'Breakfast', startTime: '07:00', endTime: '09:30', isActive: true },
-        { mealNumber: 2, mealLabel: 'Lunch', startTime: '12:00', endTime: '15:00', isActive: true },
-        { mealNumber: 3, mealLabel: 'Dinner', startTime: '19:00', endTime: '22:00', isActive: true },
-    ])
 
     const qc = useQueryClient()
 
@@ -131,7 +126,7 @@ export default function EventsPage() {
     const participantsQuery = useQuery({
         queryKey: ['event-participants', selectedEventId],
         enabled: Boolean(selectedEventId),
-        queryFn: () => api.get(`/events/${selectedEventId}/participants`, { params: { limit: 20 } }).then((r) => r.data.data),
+        queryFn: () => api.get(`/events/${selectedEventId}/participants`, { params: { limit: 100 } }).then((r) => r.data.data),
     })
 
     const staySummaryQuery = useQuery({
@@ -144,12 +139,6 @@ export default function EventsPage() {
         queryKey: ['event-stay-logs', selectedEventId, reportDate],
         enabled: Boolean(selectedEventId),
         queryFn: () => api.get(`/events/${selectedEventId}/stay/logs`, { params: { date: reportDate, limit: 15 } }).then((r) => r.data.data.logs),
-    })
-
-    const messRulesQuery = useQuery({
-        queryKey: ['event-mess-rules', selectedEventId],
-        enabled: Boolean(selectedEventId),
-        queryFn: () => api.get(`/events/${selectedEventId}/mess/rules`).then((r) => r.data.data.rules),
     })
 
     const messLogsQuery = useQuery({
@@ -186,14 +175,6 @@ export default function EventsPage() {
         },
     })
 
-    const saveMessRulesMutation = useMutation({
-        mutationFn: (rules: MessRuleInput[]) => api.put(`/events/${selectedEventId}/mess/rules`, { rules }),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['event-mess-rules', selectedEventId] })
-            toast.success('Mess rules updated')
-        },
-    })
-
     const saveRecipientsMutation = useMutation({
         mutationFn: (emails: string[]) => api.post(`/events/${selectedEventId}/report-recipients`, { emails }),
         onSuccess: () => {
@@ -206,6 +187,120 @@ export default function EventsPage() {
         mutationFn: () => api.post(`/events/${selectedEventId}/reports/send-daily`, { date: reportDate }),
         onSuccess: () => toast.success('Daily report trigger sent'),
     })
+
+    const saveGlobalMealLimitMutation = useMutation({
+        mutationFn: (maxMealsPerParticipant: number | null) =>
+            api.patch(`/events/${selectedEventId}/meal-settings`, { maxMealsPerParticipant }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['events'] })
+            qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
+            toast.success('Global meal limit updated')
+        },
+    })
+
+    const saveParticipantMealsMutation = useMutation({
+        mutationFn: (payload: { participantId: string; maxMealsAllowed: number | null; mealsConsumed: number }) =>
+            api.patch(`/events/${selectedEventId}/participants/${payload.participantId}/meals`, {
+                maxMealsAllowed: payload.maxMealsAllowed,
+                mealsConsumed: payload.mealsConsumed,
+            }),
+        onSuccess: (_, variables) => {
+            qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
+            setParticipantMealDrafts((prev) => {
+                const next = { ...prev }
+                delete next[variables.participantId]
+                return next
+            })
+            toast.success('Participant meal data updated')
+        },
+    })
+
+    useEffect(() => {
+        if (!selectedEvent) {
+            setGlobalMealLimitInput('')
+            setParticipantMealDrafts({})
+            return
+        }
+
+        setGlobalMealLimitInput(
+            selectedEvent.maxMealsPerParticipant == null ? '' : String(selectedEvent.maxMealsPerParticipant),
+        )
+        setParticipantMealDrafts({})
+    }, [selectedEvent?.id, selectedEvent?.maxMealsPerParticipant])
+
+    const buildDefaultDraft = (participant: any): MealEditDraft => {
+        const consumedFromStats = participant?.mealStats?.consumed
+        const consumed = Number.isInteger(consumedFromStats)
+            ? consumedFromStats
+            : Number.isInteger(participant?.mealsConsumed)
+                ? participant.mealsConsumed
+                : 0
+
+        return {
+            maxMealsAllowed: participant.maxMealsAllowed == null ? '' : String(participant.maxMealsAllowed),
+            mealsConsumed: String(consumed),
+        }
+    }
+
+    const getDraftForParticipant = (participant: any): MealEditDraft => {
+        const draft = participantMealDrafts[participant.id]
+        if (draft) return draft
+        return buildDefaultDraft(participant)
+    }
+
+    const updateDraftField = (participant: any, field: keyof MealEditDraft, value: string): void => {
+        setParticipantMealDrafts((prev) => {
+            const base = prev[participant.id] || buildDefaultDraft(participant)
+            return {
+                ...prev,
+                [participant.id]: {
+                    ...base,
+                    [field]: value,
+                },
+            }
+        })
+    }
+
+    const saveParticipantMealDraft = (participant: any): void => {
+        if (!selectedEventId) return
+
+        const draft = getDraftForParticipant(participant)
+        const maxMealsAllowed = draft.maxMealsAllowed.trim() === '' ? null : Number(draft.maxMealsAllowed)
+        const mealsConsumed = Number(draft.mealsConsumed)
+
+        if (maxMealsAllowed !== null && (!Number.isInteger(maxMealsAllowed) || maxMealsAllowed < 1)) {
+            toast.error('Max meals should be a number >= 1')
+            return
+        }
+
+        if (!Number.isInteger(mealsConsumed) || mealsConsumed < 0) {
+            toast.error('Meals consumed should be a number >= 0')
+            return
+        }
+
+        if (maxMealsAllowed !== null && mealsConsumed > maxMealsAllowed) {
+            toast.error('Consumed meals cannot exceed max meals')
+            return
+        }
+
+        saveParticipantMealsMutation.mutate({
+            participantId: participant.id,
+            maxMealsAllowed,
+            mealsConsumed,
+        })
+    }
+
+    const saveGlobalMealLimit = (): void => {
+        if (!selectedEventId) return
+
+        const parsed = globalMealLimitInput.trim() === '' ? null : Number(globalMealLimitInput)
+        if (parsed !== null && (!Number.isInteger(parsed) || parsed < 1)) {
+            toast.error('Global max meals should be a number >= 1')
+            return
+        }
+
+        saveGlobalMealLimitMutation.mutate(parsed)
+    }
 
     const participantPreview = useMemo(() => {
         const valid = participantRows.filter((row) => row.fullName && row.email && row.phone).length
@@ -257,7 +352,6 @@ export default function EventsPage() {
             hostelGateLabel: form.hostelGateLabel.trim() || null,
             timezone: form.timezone,
             participants: participantRows,
-            messRules,
             reportRecipients: parseRecipients(recipientInput),
         }
         await createMutation.mutateAsync(payload)
@@ -344,7 +438,7 @@ export default function EventsPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h3 className="text-xl font-bold">{selectedEvent.name} Console</h3>
-                            <p className="text-xs text-text-secondary">Manage QR scans, mess rules, participants and daily exports.</p>
+                            <p className="text-xs text-text-secondary">Manage QR scans, participants and daily exports.</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <input
@@ -441,86 +535,94 @@ export default function EventsPage() {
                         </div>
                     </div>
 
+                    <div className="bg-bg-dark rounded-lg border border-border p-3 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h4 className="font-semibold">Meal Controls</h4>
+                            <span className="text-xs text-text-secondary">Global limit applies unless per-ID override is set</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="number"
+                                min={1}
+                                value={globalMealLimitInput}
+                                onChange={(e) => setGlobalMealLimitInput(e.target.value)}
+                                placeholder="Leave blank for unlimited"
+                                className="w-52 bg-bg-card border border-border rounded px-3 py-2 text-xs"
+                            />
+                            <button
+                                onClick={saveGlobalMealLimit}
+                                disabled={saveGlobalMealLimitMutation.isPending}
+                                className="px-3 py-2 text-xs rounded bg-primary/20 text-primary disabled:opacity-50"
+                            >
+                                {saveGlobalMealLimitMutation.isPending ? 'Saving...' : 'Save Global Limit'}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="bg-bg-dark rounded-lg border border-border p-3">
                         <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold">Participants (Top 20)</h4>
+                            <h4 className="font-semibold">Participants Meal Tracker (Top 100)</h4>
                             <span className="text-xs text-text-secondary">Total: {participantsQuery.data?.total ?? 0}</span>
                         </div>
-                        <div className="space-y-2 max-h-72 overflow-y-auto">
-                            {(participantsQuery.data?.participants || []).map((participant: any) => (
-                                <div key={participant.id} className="text-xs border border-border rounded p-2 flex items-center justify-between gap-2">
-                                    <div>
-                                        <p className="font-semibold">{participant.fullName}</p>
-                                        <p className="text-text-secondary">{participant.email} • Login: {participant.loginId}</p>
+                        <div className="space-y-2 max-h-[34rem] overflow-y-auto">
+                            {(participantsQuery.data?.participants || []).map((participant: any) => {
+                                const stats = participant.mealStats || {}
+                                const draft = getDraftForParticipant(participant)
+                                const remainingText = stats.remaining == null ? 'Unlimited' : String(stats.remaining)
+                                const effectiveMaxText = stats.effectiveMaxMeals == null ? 'Unlimited' : String(stats.effectiveMaxMeals)
+
+                                return (
+                                    <div key={participant.id} className="text-xs border border-border rounded p-3 space-y-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <p className="font-semibold">{participant.fullName}</p>
+                                                <p className="text-text-secondary">{participant.email} • Login: {participant.loginId}</p>
+                                                <p className="text-warning">PW: {participant.passwordHint || participant.phone}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p>Consumed: <span className="font-semibold">{stats.consumed ?? 0}</span></p>
+                                                <p>Remaining: <span className="font-semibold">{remainingText}</span></p>
+                                                <p>Effective Max: <span className="font-semibold">{effectiveMaxText}</span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-end gap-2">
+                                            <label className="flex flex-col gap-1">
+                                                <span className="text-text-secondary">Max Meals (ID override)</span>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={draft.maxMealsAllowed}
+                                                    onChange={(e) => updateDraftField(participant, 'maxMealsAllowed', e.target.value)}
+                                                    placeholder="Blank = use global"
+                                                    className="w-44 bg-bg-card border border-border rounded px-2 py-1"
+                                                />
+                                            </label>
+                                            <label className="flex flex-col gap-1">
+                                                <span className="text-text-secondary">Meals Consumed</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={draft.mealsConsumed}
+                                                    onChange={(e) => updateDraftField(participant, 'mealsConsumed', e.target.value)}
+                                                    className="w-36 bg-bg-card border border-border rounded px-2 py-1"
+                                                />
+                                            </label>
+                                            <button
+                                                onClick={() => saveParticipantMealDraft(participant)}
+                                                disabled={saveParticipantMealsMutation.isPending}
+                                                className="px-3 py-1 rounded bg-warning/20 text-warning disabled:opacity-50"
+                                            >
+                                                {saveParticipantMealsMutation.isPending ? 'Saving...' : 'Save'}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <span className="text-warning">PW: {participant.passwordHint || participant.phone}</span>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        <div className="bg-bg-dark rounded-lg border border-border p-3 space-y-2">
-                            <h4 className="font-semibold">Update Mess Rules</h4>
-                            {messRules.map((rule, index) => (
-                                <div key={`rule-${rule.mealNumber}-${index}`} className="grid grid-cols-4 gap-2 text-xs">
-                                    <input
-                                        type="number"
-                                        value={rule.mealNumber}
-                                        onChange={(e) => {
-                                            const next = [...messRules]
-                                            next[index] = { ...next[index], mealNumber: Number(e.target.value) }
-                                            setMessRules(next)
-                                        }}
-                                        className="bg-bg-card border border-border rounded px-2 py-1"
-                                    />
-                                    <input
-                                        value={rule.mealLabel}
-                                        onChange={(e) => {
-                                            const next = [...messRules]
-                                            next[index] = { ...next[index], mealLabel: e.target.value }
-                                            setMessRules(next)
-                                        }}
-                                        className="bg-bg-card border border-border rounded px-2 py-1"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={rule.startTime}
-                                        onChange={(e) => {
-                                            const next = [...messRules]
-                                            next[index] = { ...next[index], startTime: e.target.value }
-                                            setMessRules(next)
-                                        }}
-                                        className="bg-bg-card border border-border rounded px-2 py-1"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={rule.endTime}
-                                        onChange={(e) => {
-                                            const next = [...messRules]
-                                            next[index] = { ...next[index], endTime: e.target.value }
-                                            setMessRules(next)
-                                        }}
-                                        className="bg-bg-card border border-border rounded px-2 py-1"
-                                    />
-                                </div>
-                            ))}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setMessRules((prev) => [...prev, { mealNumber: prev.length + 1, mealLabel: `Meal ${prev.length + 1}`, startTime: '09:00', endTime: '10:00', isActive: true }])}
-                                    className="px-3 py-1 text-xs rounded bg-bg-hover"
-                                >
-                                    Add Rule
-                                </button>
-                                <button onClick={() => saveMessRulesMutation.mutate(messRules)} className="px-3 py-1 text-xs rounded bg-success/20 text-success">
-                                    Save Rules
-                                </button>
-                                <button onClick={() => setMessRules(messRulesQuery.data || messRules)} className="px-3 py-1 text-xs rounded bg-bg-hover">
-                                    Reset
-                                </button>
-                            </div>
-                        </div>
-
                         <div className="bg-bg-dark rounded-lg border border-border p-3 space-y-2">
                             <h4 className="font-semibold">Daily Report Recipients (8:00 PM auto mail)</h4>
                             <textarea
@@ -542,7 +644,7 @@ export default function EventsPage() {
                     <div className="bg-bg-dark rounded-lg border border-border p-3 space-y-2">
                         <div className="flex items-center gap-2">
                             <Upload size={14} />
-                            <h4 className="font-semibold text-sm">Import Additional Participants (CSV/Excel)</h4>
+                            <h4 className="font-semibold text-sm">Import Additional Participants (CSV/Excel/PDF)</h4>
                         </div>
                         <input
                             type="file"
@@ -635,53 +737,6 @@ export default function EventsPage() {
                             className="text-xs"
                         />
                         <p className="text-xs text-text-secondary">Loaded {participantPreview.total} records • Valid {participantPreview.valid} • Invalid {participantPreview.invalid}</p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="text-sm font-semibold">Mess Rules</p>
-                        {messRules.map((rule, index) => (
-                            <div key={`create-rule-${index}`} className="grid grid-cols-4 gap-2 text-xs">
-                                <input
-                                    type="number"
-                                    value={rule.mealNumber}
-                                    onChange={(e) => {
-                                        const next = [...messRules]
-                                        next[index] = { ...next[index], mealNumber: Number(e.target.value) }
-                                        setMessRules(next)
-                                    }}
-                                    className="bg-bg-dark border border-border rounded px-2 py-1"
-                                />
-                                <input
-                                    value={rule.mealLabel}
-                                    onChange={(e) => {
-                                        const next = [...messRules]
-                                        next[index] = { ...next[index], mealLabel: e.target.value }
-                                        setMessRules(next)
-                                    }}
-                                    className="bg-bg-dark border border-border rounded px-2 py-1"
-                                />
-                                <input
-                                    type="time"
-                                    value={rule.startTime}
-                                    onChange={(e) => {
-                                        const next = [...messRules]
-                                        next[index] = { ...next[index], startTime: e.target.value }
-                                        setMessRules(next)
-                                    }}
-                                    className="bg-bg-dark border border-border rounded px-2 py-1"
-                                />
-                                <input
-                                    type="time"
-                                    value={rule.endTime}
-                                    onChange={(e) => {
-                                        const next = [...messRules]
-                                        next[index] = { ...next[index], endTime: e.target.value }
-                                        setMessRules(next)
-                                    }}
-                                    className="bg-bg-dark border border-border rounded px-2 py-1"
-                                />
-                            </div>
-                        ))}
                     </div>
 
                     <div className="space-y-2">
