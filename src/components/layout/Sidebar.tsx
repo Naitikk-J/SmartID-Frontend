@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
 import {
     LayoutDashboard, Radio, Users, ClipboardCheck, DoorOpen, Calendar,
-    BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X, Home
+    BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X, Home, QrCode
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
     { path: '/live-feed', label: 'Live Feed', icon: Radio, permission: 'Live Feed' },
     { path: '/students', label: 'Students', icon: Users, permission: 'Students' },
     { path: '/hostellers', label: 'Hostellers', icon: Home, permission: 'Hostellers' },
+    { path: '/qr-projector', label: 'QR Projector', icon: QrCode, permission: 'QR Projector' },
     { path: '/attendance', label: 'Attendance', icon: ClipboardCheck, permission: 'Attendance' },
     { path: '/exit-rules', label: 'Exit Rules', icon: DoorOpen, permission: 'Exit Rules' },
     { path: '/events', label: 'Events', icon: Calendar, permission: 'Events' },

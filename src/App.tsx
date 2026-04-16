@@ -9,6 +9,7 @@ import LiveFeedPage from './pages/LiveFeedPage'
 import StudentsPage from './pages/StudentsPage'
 import StudentDetailPage from './pages/StudentDetailPage'
 import HostellersPage from './pages/HostellersPage'
+import QrProjectorPage from './pages/QrProjectorPage'
 import AttendancePage from './pages/AttendancePage'
 import ExitRulesPage from './pages/ExitRulesPage'
 import EventsPage from './pages/EventsPage'
@@ -63,6 +64,7 @@ function DashboardLayout() {
                             <Route path="/students" element={<PermissionRoute permission="Students"><StudentsPage /></PermissionRoute>} />
                             <Route path="/students/:id" element={<PermissionRoute permission="Students"><StudentDetailPage /></PermissionRoute>} />
                             <Route path="/hostellers" element={<PermissionRoute permission="Hostellers"><HostellersPage /></PermissionRoute>} />
+                            <Route path="/qr-projector" element={<PermissionRoute permission="QR Projector"><QrProjectorPage /></PermissionRoute>} />
                             <Route path="/attendance" element={<PermissionRoute permission="Attendance"><AttendancePage /></PermissionRoute>} />
                             <Route path="/exit-rules" element={<PermissionRoute permission="Exit Rules"><ExitRulesPage /></PermissionRoute>} />
                             <Route path="/events" element={<PermissionRoute permission="Events"><EventsPage /></PermissionRoute>} />
