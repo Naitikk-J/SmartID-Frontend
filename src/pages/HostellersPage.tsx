@@ -718,6 +718,24 @@ export default function HostellersPage() {
                                         <p className="text-sm font-bold text-text-primary">{item.student?.fullName}</p>
                                         <p className="text-xs text-text-secondary">{item.student?.enrollmentNo} • ETA: {new Date(item.eta).toLocaleString()}</p>
                                         <p className="text-xs text-text-secondary mt-1">Reason: {item.reason}</p>
+                                        {Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)) ? (
+                                            <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1.5">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-primary">Location</span>
+                                                <span className="text-[11px] font-bold text-text-primary">{Number(item.latitude).toFixed(5)}, {Number(item.longitude).toFixed(5)}</span>
+                                                <a
+                                                    href={`https://maps.google.com/?q=${Number(item.latitude)},${Number(item.longitude)}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-[10px] font-black uppercase tracking-wider text-accent hover:underline"
+                                                >
+                                                    Open Map
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-2 inline-flex items-center rounded-lg border border-warning/25 bg-warning/10 px-2.5 py-1.5 text-[11px] font-bold text-warning">
+                                                Location unavailable
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
                                         <button
