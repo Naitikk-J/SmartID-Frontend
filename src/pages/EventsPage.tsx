@@ -5,7 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import Modal from '../components/ui/Modal'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
-import { Calendar, Download, Mail, Plus, QrCode, Upload } from 'lucide-react'
+import { Calendar, Download, Mail, Plus, QrCode, Trash2, Upload } from 'lucide-react'
 
 interface EventItem {
     id: string
@@ -138,6 +138,7 @@ export default function EventsPage() {
     const [recipientInput, setRecipientInput] = useState('')
     const [stayQrToken, setStayQrToken] = useState<string>('')
     const [messQrToken, setMessQrToken] = useState<string>('')
+    const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
     const [globalMealLimitInput, setGlobalMealLimitInput] = useState('')
     const [dayWiseMealDrafts, setDayWiseMealDrafts] = useState<DayWiseMealLimitDraft[]>(
         Array.from({ length: 5 }, (_, index) => ({
@@ -196,6 +197,26 @@ export default function EventsPage() {
     const toggleMutation = useMutation({
         mutationFn: (id: string) => api.patch(`/events/${id}/toggle`),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); toast.success('Event toggled') },
+    })
+
+    const deleteEventMutation = useMutation({
+        mutationFn: (id: string) => api.delete(`/events/${id}`),
+        onSuccess: (_, eventId) => {
+            qc.invalidateQueries({ queryKey: ['events'] })
+            if (selectedEventId === eventId) {
+                setSelectedEventId(null)
+                setStayQrToken('')
+                setMessQrToken('')
+            }
+            toast.success('Event deleted successfully')
+        },
+        onError: (error: any) => {
+            const message = String(error?.response?.data?.message || error?.message || 'Failed to delete event')
+            toast.error(message)
+        },
+        onSettled: () => {
+            setDeletingEventId(null)
+        },
     })
 
     const createMutation = useMutation({
@@ -532,6 +553,16 @@ export default function EventsPage() {
         setMessQrToken(String(firstRule?.qrToken || ''))
     }
 
+    const handleDeleteEvent = (event: EventItem): void => {
+        if (deleteEventMutation.isPending) return
+
+        const confirmed = window.confirm(`Delete event \"${event.name}\"? This will deactivate the event.`)
+        if (!confirmed) return
+
+        setDeletingEventId(event.id)
+        deleteEventMutation.mutate(event.id)
+    }
+
     if (isLoading) return <LoadingSpinner />
 
     return (
@@ -573,6 +604,14 @@ export default function EventsPage() {
                             </button>
                             <button onClick={() => setSelectedEventId(event.id)} className="px-3 py-1 bg-primary/20 text-primary rounded text-xs hover:bg-primary/30 transition-colors">
                                 Open Console
+                            </button>
+                            <button
+                                onClick={() => handleDeleteEvent(event)}
+                                disabled={deleteEventMutation.isPending && deletingEventId === event.id}
+                                className="px-3 py-1 bg-red-500/15 text-red-400 rounded text-xs hover:bg-red-500/25 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                                <Trash2 size={12} />
+                                {deleteEventMutation.isPending && deletingEventId === event.id ? 'Deleting...' : 'Delete'}
                             </button>
                         </div>
                     </div>
