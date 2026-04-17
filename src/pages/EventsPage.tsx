@@ -363,6 +363,17 @@ export default function EventsPage() {
             return
         }
 
+        if (parsed !== null) {
+            const dayWisePayload = parseDayWiseDraftPayload()
+            if (!dayWisePayload) return
+
+            const dayWiseTotal = sumDayWiseCoupons(dayWisePayload)
+            if (dayWiseTotal > parsed) {
+                toast.error(`Day-wise coupons total (${dayWiseTotal}) cannot exceed global max meals (${parsed})`)
+                return
+            }
+        }
+
         saveGlobalMealLimitMutation.mutate({ maxMealsPerParticipant: parsed })
     }
 
@@ -373,6 +384,28 @@ export default function EventsPage() {
                 : item
         )))
     }
+
+    const parseDayWiseDraftPayload = (): Array<{ dayNumber: number; coupons: number }> | null => {
+        const payload: Array<{ dayNumber: number; coupons: number }> = []
+        for (const row of dayWiseMealDrafts) {
+            const trimmed = row.coupons.trim()
+            if (!trimmed) continue
+
+            const parsed = Number(trimmed)
+            if (!Number.isInteger(parsed) || parsed < 0) {
+                toast.error(`Day ${row.dayNumber} coupons must be a number >= 0`)
+                return null
+            }
+
+            payload.push({ dayNumber: row.dayNumber, coupons: parsed })
+        }
+
+        return payload
+    }
+
+    const sumDayWiseCoupons = (payload: Array<{ dayNumber: number; coupons: number }>): number => (
+        payload.reduce((sum, item) => sum + item.coupons, 0)
+    )
 
     const autoSplitGlobalIntoDays = (): void => {
         const parsedGlobal = Number(globalMealLimitInput)
@@ -391,18 +424,23 @@ export default function EventsPage() {
     const saveDayWiseMealLimits = (): void => {
         if (!selectedEventId) return
 
-        const payload: Array<{ dayNumber: number; coupons: number }> = []
-        for (const row of dayWiseMealDrafts) {
-            const trimmed = row.coupons.trim()
-            if (!trimmed) continue
+        const payload = parseDayWiseDraftPayload()
+        if (!payload) return
 
-            const parsed = Number(trimmed)
-            if (!Number.isInteger(parsed) || parsed < 0) {
-                toast.error(`Day ${row.dayNumber} coupons must be a number >= 0`)
+        const effectiveGlobalFromInput = globalMealLimitInput.trim() === '' ? null : Number(globalMealLimitInput)
+        const effectiveGlobalLimit = effectiveGlobalFromInput ?? selectedEvent?.maxMealsPerParticipant ?? null
+
+        if (effectiveGlobalLimit !== null) {
+            if (!Number.isInteger(effectiveGlobalLimit) || effectiveGlobalLimit < 1) {
+                toast.error('Global max meals should be a number >= 1')
                 return
             }
 
-            payload.push({ dayNumber: row.dayNumber, coupons: parsed })
+            const dayWiseTotal = sumDayWiseCoupons(payload)
+            if (dayWiseTotal > effectiveGlobalLimit) {
+                toast.error(`Day-wise coupons total (${dayWiseTotal}) cannot exceed global max meals (${effectiveGlobalLimit})`)
+                return
+            }
         }
 
         saveGlobalMealLimitMutation.mutate({
