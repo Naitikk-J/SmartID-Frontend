@@ -22,6 +22,7 @@ interface EventItem {
     stayScansCount?: number
     mealScansCount?: number
     maxMealsPerParticipant?: number | null
+    dayWiseMealLimits?: Array<{ dayNumber: number; coupons: number }> | null
 }
 
 interface ParticipantImportRow {
@@ -37,6 +38,11 @@ interface ParticipantImportRow {
 interface MealEditDraft {
     maxMealsAllowed: string
     mealsConsumed: string
+}
+
+interface DayWiseMealLimitDraft {
+    dayNumber: number
+    coupons: string
 }
 
 function toIso(date: string, time?: string): string {
@@ -90,6 +96,40 @@ function downloadBlob(blob: Blob, fileName: string): void {
     URL.revokeObjectURL(url)
 }
 
+function normalizeDayWiseMealLimits(raw: unknown): Array<{ dayNumber: number; coupons: number }> {
+    if (!Array.isArray(raw)) return []
+
+    const map = new Map<number, number>()
+    raw.forEach((item) => {
+        const dayNumber = Number((item as any)?.dayNumber)
+        const coupons = Number((item as any)?.coupons)
+        if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 90) return
+        if (!Number.isInteger(coupons) || coupons < 0) return
+        map.set(dayNumber, coupons)
+    })
+
+    return Array.from(map.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([dayNumber, coupons]) => ({ dayNumber, coupons }))
+}
+
+function splitGlobalAcrossDays(globalLimit: number, days = 5): Array<{ dayNumber: number; coupons: number }> {
+    const safeGlobal = Math.max(0, Math.trunc(globalLimit || 0))
+    const safeDays = Math.max(1, Math.trunc(days || 1))
+
+    const base = Math.floor(safeGlobal / safeDays)
+    let remainder = safeGlobal % safeDays
+
+    return Array.from({ length: safeDays }, (_, index) => {
+        const next = base + (remainder > 0 ? 1 : 0)
+        if (remainder > 0) remainder -= 1
+        return {
+            dayNumber: index + 1,
+            coupons: next,
+        }
+    })
+}
+
 export default function EventsPage() {
     const [showCreate, setShowCreate] = useState(false)
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
@@ -99,6 +139,12 @@ export default function EventsPage() {
     const [stayQrToken, setStayQrToken] = useState<string>('')
     const [messQrToken, setMessQrToken] = useState<string>('')
     const [globalMealLimitInput, setGlobalMealLimitInput] = useState('')
+    const [dayWiseMealDrafts, setDayWiseMealDrafts] = useState<DayWiseMealLimitDraft[]>(
+        Array.from({ length: 5 }, (_, index) => ({
+            dayNumber: index + 1,
+            coupons: '',
+        })),
+    )
     const [participantMealDrafts, setParticipantMealDrafts] = useState<Record<string, MealEditDraft>>({})
     const [form, setForm] = useState({
         name: '',
@@ -189,12 +235,12 @@ export default function EventsPage() {
     })
 
     const saveGlobalMealLimitMutation = useMutation({
-        mutationFn: (maxMealsPerParticipant: number | null) =>
-            api.patch(`/events/${selectedEventId}/meal-settings`, { maxMealsPerParticipant }),
+        mutationFn: (payload: { maxMealsPerParticipant?: number | null; dayWiseMealLimits?: Array<{ dayNumber: number; coupons: number }> }) =>
+            api.patch(`/events/${selectedEventId}/meal-settings`, payload),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['events'] })
             qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
-            toast.success('Global meal limit updated')
+            toast.success('Meal settings updated')
         },
     })
 
@@ -218,6 +264,12 @@ export default function EventsPage() {
     useEffect(() => {
         if (!selectedEvent) {
             setGlobalMealLimitInput('')
+            setDayWiseMealDrafts(
+                Array.from({ length: 5 }, (_, index) => ({
+                    dayNumber: index + 1,
+                    coupons: '',
+                })),
+            )
             setParticipantMealDrafts({})
             return
         }
@@ -225,8 +277,20 @@ export default function EventsPage() {
         setGlobalMealLimitInput(
             selectedEvent.maxMealsPerParticipant == null ? '' : String(selectedEvent.maxMealsPerParticipant),
         )
+
+        const normalizedDayWise = normalizeDayWiseMealLimits(selectedEvent.dayWiseMealLimits)
+        const nextDrafts = Array.from({ length: 5 }, (_, index) => {
+            const dayNumber = index + 1
+            const existing = normalizedDayWise.find((item) => item.dayNumber === dayNumber)
+            return {
+                dayNumber,
+                coupons: existing ? String(existing.coupons) : '',
+            }
+        })
+        setDayWiseMealDrafts(nextDrafts)
+
         setParticipantMealDrafts({})
-    }, [selectedEvent?.id, selectedEvent?.maxMealsPerParticipant])
+    }, [selectedEvent?.id, selectedEvent?.maxMealsPerParticipant, selectedEvent?.dayWiseMealLimits])
 
     const buildDefaultDraft = (participant: any): MealEditDraft => {
         const consumedFromStats = participant?.mealStats?.consumed
@@ -299,7 +363,51 @@ export default function EventsPage() {
             return
         }
 
-        saveGlobalMealLimitMutation.mutate(parsed)
+        saveGlobalMealLimitMutation.mutate({ maxMealsPerParticipant: parsed })
+    }
+
+    const updateDayWiseDraft = (dayNumber: number, value: string): void => {
+        setDayWiseMealDrafts((prev) => prev.map((item) => (
+            item.dayNumber === dayNumber
+                ? { ...item, coupons: value }
+                : item
+        )))
+    }
+
+    const autoSplitGlobalIntoDays = (): void => {
+        const parsedGlobal = Number(globalMealLimitInput)
+        if (!Number.isInteger(parsedGlobal) || parsedGlobal < 1) {
+            toast.error('Enter a valid global max meals value first')
+            return
+        }
+
+        const split = splitGlobalAcrossDays(parsedGlobal, dayWiseMealDrafts.length || 5)
+        setDayWiseMealDrafts(split.map((item) => ({
+            dayNumber: item.dayNumber,
+            coupons: String(item.coupons),
+        })))
+    }
+
+    const saveDayWiseMealLimits = (): void => {
+        if (!selectedEventId) return
+
+        const payload: Array<{ dayNumber: number; coupons: number }> = []
+        for (const row of dayWiseMealDrafts) {
+            const trimmed = row.coupons.trim()
+            if (!trimmed) continue
+
+            const parsed = Number(trimmed)
+            if (!Number.isInteger(parsed) || parsed < 0) {
+                toast.error(`Day ${row.dayNumber} coupons must be a number >= 0`)
+                return
+            }
+
+            payload.push({ dayNumber: row.dayNumber, coupons: parsed })
+        }
+
+        saveGlobalMealLimitMutation.mutate({
+            dayWiseMealLimits: payload,
+        })
     }
 
     const participantPreview = useMemo(() => {
@@ -556,6 +664,46 @@ export default function EventsPage() {
                             >
                                 {saveGlobalMealLimitMutation.isPending ? 'Saving...' : 'Save Global Limit'}
                             </button>
+                        </div>
+
+                        <div className="border-t border-border pt-3 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs text-text-secondary">
+                                    Day-wise coupon split (midnight rollover): previous day unused coupons auto-expire.
+                                </p>
+                                <button
+                                    onClick={autoSplitGlobalIntoDays}
+                                    className="px-2 py-1 text-[11px] rounded bg-bg-hover"
+                                >
+                                    Auto Split From Global
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                                {dayWiseMealDrafts.map((row) => (
+                                    <label key={row.dayNumber} className="flex flex-col gap-1 text-[11px]">
+                                        <span className="text-text-secondary">Day {row.dayNumber} Coupons</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={row.coupons}
+                                            onChange={(e) => updateDayWiseDraft(row.dayNumber, e.target.value)}
+                                            placeholder="0"
+                                            className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+
+                            <div>
+                                <button
+                                    onClick={saveDayWiseMealLimits}
+                                    disabled={saveGlobalMealLimitMutation.isPending}
+                                    className="px-3 py-2 text-xs rounded bg-warning/20 text-warning disabled:opacity-50"
+                                >
+                                    {saveGlobalMealLimitMutation.isPending ? 'Saving...' : 'Save Day-wise Split'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
