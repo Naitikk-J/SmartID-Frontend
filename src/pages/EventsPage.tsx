@@ -130,6 +130,44 @@ function splitGlobalAcrossDays(globalLimit: number, days = 5): Array<{ dayNumber
     })
 }
 
+function computeDurationDays(startInput: string | Date, endInput: string | Date): number {
+    const start = startInput instanceof Date ? startInput : new Date(startInput)
+    const end = endInput instanceof Date ? endInput : new Date(endInput)
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1
+
+    const startDay = new Date(start)
+    startDay.setHours(0, 0, 0, 0)
+    const endDay = new Date(end)
+    endDay.setHours(0, 0, 0, 0)
+
+    const diffMs = endDay.getTime() - startDay.getTime()
+    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1
+
+    return Math.max(1, Math.min(90, days))
+}
+
+function buildDayWiseDrafts(
+    durationDays: number,
+    existing?: Array<{ dayNumber: number; coupons: number }>,
+): DayWiseMealLimitDraft[] {
+    const safeDuration = Math.max(1, Math.min(90, Math.trunc(durationDays || 1)))
+    const map = new Map<number, number>()
+
+        ; (existing || []).forEach((item) => {
+            map.set(item.dayNumber, item.coupons)
+        })
+
+    return Array.from({ length: safeDuration }, (_, index) => {
+        const dayNumber = index + 1
+        const existingCoupons = map.get(dayNumber)
+        return {
+            dayNumber,
+            coupons: existingCoupons == null ? '' : String(existingCoupons),
+        }
+    })
+}
+
 export default function EventsPage() {
     const [showCreate, setShowCreate] = useState(false)
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
@@ -141,16 +179,14 @@ export default function EventsPage() {
     const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
     const [globalMealLimitInput, setGlobalMealLimitInput] = useState('')
     const [dayWiseMealDrafts, setDayWiseMealDrafts] = useState<DayWiseMealLimitDraft[]>(
-        Array.from({ length: 5 }, (_, index) => ({
-            dayNumber: index + 1,
-            coupons: '',
-        })),
+        buildDayWiseDrafts(1),
     )
     const [participantMealDrafts, setParticipantMealDrafts] = useState<Record<string, MealEditDraft>>({})
     const [form, setForm] = useState({
         name: '',
         description: '',
         eventDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date().toISOString().slice(0, 10),
         startTime: '09:00',
         endTime: '18:00',
         isStayHostel: true,
@@ -285,12 +321,7 @@ export default function EventsPage() {
     useEffect(() => {
         if (!selectedEvent) {
             setGlobalMealLimitInput('')
-            setDayWiseMealDrafts(
-                Array.from({ length: 5 }, (_, index) => ({
-                    dayNumber: index + 1,
-                    coupons: '',
-                })),
-            )
+            setDayWiseMealDrafts(buildDayWiseDrafts(1))
             setParticipantMealDrafts({})
             return
         }
@@ -300,18 +331,12 @@ export default function EventsPage() {
         )
 
         const normalizedDayWise = normalizeDayWiseMealLimits(selectedEvent.dayWiseMealLimits)
-        const nextDrafts = Array.from({ length: 5 }, (_, index) => {
-            const dayNumber = index + 1
-            const existing = normalizedDayWise.find((item) => item.dayNumber === dayNumber)
-            return {
-                dayNumber,
-                coupons: existing ? String(existing.coupons) : '',
-            }
-        })
+        const durationDays = computeDurationDays(selectedEvent.eventDate, selectedEvent.endTime)
+        const nextDrafts = buildDayWiseDrafts(durationDays, normalizedDayWise)
         setDayWiseMealDrafts(nextDrafts)
 
         setParticipantMealDrafts({})
-    }, [selectedEvent?.id, selectedEvent?.maxMealsPerParticipant, selectedEvent?.dayWiseMealLimits])
+    }, [selectedEvent?.id, selectedEvent?.eventDate, selectedEvent?.endTime, selectedEvent?.maxMealsPerParticipant, selectedEvent?.dayWiseMealLimits])
 
     const buildDefaultDraft = (participant: any): MealEditDraft => {
         const consumedFromStats = participant?.mealStats?.consumed
@@ -509,12 +534,26 @@ export default function EventsPage() {
             toast.error('Event name is required')
             return
         }
+
+        const startAt = new Date(`${form.eventDate}T${form.startTime}:00`)
+        const endAt = new Date(`${form.endDate}T${form.endTime}:00`)
+
+        if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+            toast.error('Invalid start/end date-time')
+            return
+        }
+
+        if (endAt.getTime() < startAt.getTime()) {
+            toast.error('End date/time must be after start date/time')
+            return
+        }
+
         const payload = {
             name: form.name.trim(),
             description: form.description.trim() || null,
             eventDate: toIso(form.eventDate),
             startTime: toIso(form.eventDate, form.startTime),
-            endTime: toIso(form.eventDate, form.endTime),
+            endTime: toIso(form.endDate, form.endTime),
             isStayHostel: form.isStayHostel,
             hostelGateLabel: form.hostelGateLabel.trim() || null,
             timezone: form.timezone,
@@ -564,6 +603,10 @@ export default function EventsPage() {
     }
 
     if (isLoading) return <LoadingSpinner />
+
+    const selectedEventDurationDays = selectedEvent
+        ? computeDurationDays(selectedEvent.eventDate, selectedEvent.endTime)
+        : 1
 
     return (
         <div className="space-y-6">
@@ -748,6 +791,9 @@ export default function EventsPage() {
                                 <p className="text-xs text-text-secondary">
                                     Day-wise coupon split (midnight rollover): previous day unused coupons auto-expire.
                                 </p>
+                                <span className="text-[11px] text-text-secondary">
+                                    Duration-based days: {selectedEventDurationDays}
+                                </span>
                                 <button
                                     onClick={autoSplitGlobalIntoDays}
                                     className="px-2 py-1 text-[11px] rounded bg-bg-hover"
@@ -916,7 +962,21 @@ export default function EventsPage() {
                         <input
                             type="date"
                             value={form.eventDate}
-                            onChange={(e) => setForm((prev) => ({ ...prev, eventDate: e.target.value }))}
+                            onChange={(e) => {
+                                const nextDate = e.target.value
+                                setForm((prev) => ({
+                                    ...prev,
+                                    eventDate: nextDate,
+                                    endDate: prev.endDate < nextDate ? nextDate : prev.endDate,
+                                }))
+                            }}
+                            className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
+                        />
+                        <input
+                            type="date"
+                            value={form.endDate}
+                            min={form.eventDate}
+                            onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
                             className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
                         />
                         <div className="grid grid-cols-2 gap-2">
