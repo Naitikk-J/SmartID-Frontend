@@ -83,7 +83,6 @@ export default function QrProjectorPage() {
     const {
         data: projectorQrData,
         isLoading: isLoadingProjectorQr,
-        refetch: refetchProjectorQr,
     } = useQuery({
         queryKey: ['qrProjectorData', projectEventId, projectQrType, projectGateId],
         enabled: isLiveGateProjector ? Boolean(projectGateId) : Boolean(projectEventId),
