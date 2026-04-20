@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
 import api from '../api/axios'
 import StatCard from '../components/ui/StatCard'
 import Badge from '../components/ui/Badge'
@@ -7,7 +8,18 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import type { ScanEvent } from '../store/socketStore'
 import { Link } from 'react-router-dom'
 
+type EventLite = {
+    id: string
+    name: string
+}
+
+type LiveCardEvent = ScanEvent & {
+    secondaryLabel?: string
+}
+
 export default function DashboardPage() {
+    const [feedSource, setFeedSource] = useState<'CAMPUS' | 'EVENT_MESS'>('CAMPUS')
+    const [selectedEventId, setSelectedEventId] = useState<string>('')
 
     const { data: occupancy } = useQuery({
         queryKey: ['campus-occupancy'],
@@ -27,7 +39,69 @@ export default function DashboardPage() {
         refetchInterval: 5000,
     })
 
+    const { data: events } = useQuery<EventLite[]>({
+        queryKey: ['dashboard-events-feed-list'],
+        queryFn: () => api.get('/events').then((r) => r.data.data.events as EventLite[]),
+        refetchInterval: 30000,
+    })
+
+    const selectedEventName = useMemo(
+        () => events?.find((event) => event.id === selectedEventId)?.name || 'Event Mess',
+        [events, selectedEventId],
+    )
+
+    const { data: eventMessData } = useQuery({
+        queryKey: ['dashboard-event-mess-feed', selectedEventId],
+        enabled: feedSource === 'EVENT_MESS' && Boolean(selectedEventId),
+        queryFn: () => api.get(`/events/${selectedEventId}/mess/logs`, {
+            params: {
+                date: new Date().toISOString().slice(0, 10),
+                limit: 30,
+            },
+        }).then((r) => r.data.data),
+        refetchInterval: 7000,
+    })
+
+    useEffect(() => {
+        if (!events?.length) return
+        if (!selectedEventId) {
+            setSelectedEventId(events[0].id)
+            return
+        }
+
+        const exists = events.some((event) => event.id === selectedEventId)
+        if (!exists) {
+            setSelectedEventId(events[0].id)
+        }
+    }, [events, selectedEventId])
+
     const liveFeed: ScanEvent[] = polledFeed?.events || []
+
+    const campusFeed: LiveCardEvent[] = liveFeed.map((event) => ({
+        ...event,
+        secondaryLabel: `Gate ${event.gateId?.toString().slice(-1) || '1'}`,
+    }))
+
+    const eventMessFeed: LiveCardEvent[] = useMemo(() => {
+        const logs = eventMessData?.logs || []
+        return logs.map((log: any) => {
+            const profile = log.participant || log.student || {}
+            return {
+                id: String(log.id || `${log.scannedAt}-${profile.enrollmentNo || profile.email || 'NA'}`),
+                time: String(log.scannedAt || new Date().toISOString()),
+                studentName: String(profile.fullName || 'Unknown Participant'),
+                enrollmentNo: String(profile.enrollmentNo || profile.email || 'N/A'),
+                department: selectedEventName,
+                scanType: 'EVENT_MESS',
+                result: 'VERIFIED',
+                badge: 'GREEN',
+                direction: null,
+                secondaryLabel: String(log.mealLabel || `Meal ${log.mealNumber || '-'}`),
+            }
+        })
+    }, [eventMessData?.logs, selectedEventName])
+
+    const displayFeed = feedSource === 'EVENT_MESS' ? eventMessFeed : campusFeed
 
     const deptData = entrySummary?.summary
         ? Object.entries(entrySummary.summary).map(([dept, count]: [string, any]) => ({
@@ -89,21 +163,44 @@ export default function DashboardPage() {
                             </div>
                             <h3 className="text-xl font-bold text-text-primary">Live Scan Feed</h3>
                         </div>
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={feedSource}
+                                onChange={(event) => setFeedSource(event.target.value as 'CAMPUS' | 'EVENT_MESS')}
+                                className="bg-bg-dark border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-text-primary"
+                            >
+                                <option value="CAMPUS">Campus Scans</option>
+                                <option value="EVENT_MESS">Event Mess</option>
+                            </select>
+                            {feedSource === 'EVENT_MESS' && (
+                                <select
+                                    value={selectedEventId}
+                                    onChange={(event) => setSelectedEventId(event.target.value)}
+                                    className="bg-bg-dark border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold text-text-primary max-w-[140px]"
+                                >
+                                    {(events || []).map((event) => (
+                                        <option key={event.id} value={event.id}>{event.name}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
                         <Link to="/live-feed" className="p-2 text-text-secondary hover:text-accent rounded-lg transition-all">
                             <ChevronRight size={20} />
                         </Link>
                     </div>
 
                     <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-                        {liveFeed.length === 0 ? (
+                        {displayFeed.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-8">
                                 <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center mb-4 text-text-secondary">
                                     <Radio size={32} />
                                 </div>
-                                <p className="text-text-secondary font-medium">Waiting for scans...</p>
+                                <p className="text-text-secondary font-medium">
+                                    {feedSource === 'EVENT_MESS' ? 'No event mess scans yet.' : 'Waiting for scans...'}
+                                </p>
                             </div>
                         ) : (
-                            liveFeed.slice(0, 15).map((event: ScanEvent, i: number) => (
+                            displayFeed.slice(0, 15).map((event: LiveCardEvent, i: number) => (
                                 <div
                                     key={event.id || i}
                                     className="group flex flex-col gap-2 p-4 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 animate-fade-in-up"
@@ -129,7 +226,7 @@ export default function DashboardPage() {
                                                 {event.scanType?.replace('_', ' ')}
                                             </p>
                                             <p className="text-[9px] font-bold text-text-secondary uppercase">
-                                                Gate {event.gateId?.toString().slice(-1) || '1'}
+                                                {event.secondaryLabel || 'Gate 1'}
                                             </p>
                                         </div>
                                     </div>
