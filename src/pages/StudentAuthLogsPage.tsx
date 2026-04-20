@@ -69,6 +69,27 @@ type RebindRequestResponse = {
     limit: number
 }
 
+type DeviceBinding = {
+    id: string
+    fullName: string
+    enrollmentNo: string
+    email: string
+    linkedDeviceId: string | null
+    linkedDeviceLabel: string | null
+    linkedDevicePlatform: string | null
+    deviceLinkedAt: string | null
+    lastLoginAt: string | null
+    lastLogoutAt: string | null
+}
+
+type DeviceBindingResponse = {
+    bindings: DeviceBinding[]
+    total: number
+    page: number
+    pages: number
+    limit: number
+}
+
 const ACTION_OPTIONS = [
     'LOGIN_SUCCESS',
     'LOGIN_FAILURE',
@@ -104,6 +125,11 @@ export default function StudentAuthLogsPage() {
     const [requestStatus, setRequestStatus] = useState('PENDING')
     const [requestSearch, setRequestSearch] = useState('')
 
+    const [bindingPage, setBindingPage] = useState(1)
+    const [bindingSearch, setBindingSearch] = useState('')
+    const [bindingDeviceId, setBindingDeviceId] = useState('')
+    const [bindingEmailInput, setBindingEmailInput] = useState('')
+
     const queryParams = useMemo(
         () => ({
             page,
@@ -128,6 +154,16 @@ export default function StudentAuthLogsPage() {
         [requestPage, requestStatus, requestSearch],
     )
 
+    const bindingQueryParams = useMemo(
+        () => ({
+            page: bindingPage,
+            limit: 20,
+            search: bindingSearch.trim() || undefined,
+            deviceId: bindingDeviceId.trim() || undefined,
+        }),
+        [bindingPage, bindingSearch, bindingDeviceId],
+    )
+
     const { data, isLoading, isFetching } = useQuery<StudentAuthLogResponse>({
         queryKey: ['student-auth-logs', queryParams],
         queryFn: () =>
@@ -146,6 +182,18 @@ export default function StudentAuthLogsPage() {
             api
                 .get('/admin/device-rebind-requests', { params: requestQueryParams })
                 .then((response) => response.data.data as RebindRequestResponse),
+    })
+
+    const {
+        data: bindingData,
+        isLoading: isBindingLoading,
+        isFetching: isBindingFetching,
+    } = useQuery<DeviceBindingResponse>({
+        queryKey: ['device-bindings', bindingQueryParams],
+        queryFn: () =>
+            api
+                .get('/admin/device-bindings', { params: bindingQueryParams })
+                .then((response) => response.data.data as DeviceBindingResponse),
     })
 
     const resolveRequestMutation = useMutation({
@@ -168,9 +216,30 @@ export default function StudentAuthLogsPage() {
             toast.success('Request updated successfully')
             queryClient.invalidateQueries({ queryKey: ['student-auth-logs'] })
             queryClient.invalidateQueries({ queryKey: ['device-rebind-requests'] })
+            queryClient.invalidateQueries({ queryKey: ['device-bindings'] })
         },
         onError: (error: any) => {
             toast.error(error?.response?.data?.error || 'Failed to update request')
+        },
+    })
+
+    const revokeBindingMutation = useMutation({
+        mutationFn: async ({ email, reason }: { email: string; reason?: string }) => {
+            const response = await api.patch('/admin/device-bindings/revoke', {
+                email,
+                reason,
+            })
+            return response.data
+        },
+        onSuccess: () => {
+            toast.success('Device binding revoked successfully')
+            setBindingEmailInput('')
+            queryClient.invalidateQueries({ queryKey: ['student-auth-logs'] })
+            queryClient.invalidateQueries({ queryKey: ['device-bindings'] })
+            queryClient.invalidateQueries({ queryKey: ['device-rebind-requests'] })
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.error || 'Failed to revoke device binding')
         },
     })
 
@@ -195,13 +264,31 @@ export default function StudentAuthLogsPage() {
         resolveRequestMutation.mutate({ requestId, decision, adminNote })
     }
 
+    const handleRevokeBinding = (email: string) => {
+        if (!email.trim()) {
+            toast.error('Valid email is required to revoke device binding')
+            return
+        }
+
+        const shouldContinue = window.confirm(`Revoke device binding for ${email}?`)
+        if (!shouldContinue) return
+
+        const reason = window.prompt('Optional reason for revoke:', '') || undefined
+        revokeBindingMutation.mutate({ email: email.trim(), reason })
+    }
+
+    const submitManualRevoke = (event: FormEvent) => {
+        event.preventDefault()
+        handleRevokeBinding(bindingEmailInput)
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <ShieldAlert size={28} /> Student Auth Logs
                 </h2>
-                {isFetching && <span className="text-xs text-text-secondary">Refreshing...</span>}
+                {(isFetching || isRequestFetching || isBindingFetching) && <span className="text-xs text-text-secondary">Refreshing...</span>}
             </div>
 
             <form
@@ -361,6 +448,142 @@ export default function StudentAuthLogsPage() {
                     )}
                 </div>
             )}
+
+            <div className="bg-bg-card rounded-xl border border-border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                    <div>
+                        <h3 className="text-lg font-semibold">Linked Device Bindings</h3>
+                        <p className="text-xs text-text-secondary">List all emails currently bound with a device and revoke instantly</p>
+                    </div>
+                    <div className="text-xs text-text-secondary">{isBindingFetching ? 'Refreshing...' : ''}</div>
+                </div>
+
+                <div className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3 border-b border-border">
+                    <input
+                        value={bindingSearch}
+                        onChange={(event) => {
+                            setBindingSearch(event.target.value)
+                            setBindingPage(1)
+                        }}
+                        placeholder="Search by email/name/enrollment"
+                        className="md:col-span-2 bg-bg-dark border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                    <input
+                        value={bindingDeviceId}
+                        onChange={(event) => {
+                            setBindingDeviceId(event.target.value)
+                            setBindingPage(1)
+                        }}
+                        placeholder="Filter by device ID"
+                        className="bg-bg-dark border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                    <button
+                        onClick={() => queryClient.invalidateQueries({ queryKey: ['device-bindings'] })}
+                        className="bg-bg-dark border border-border rounded-lg px-4 py-2 text-sm"
+                    >
+                        Refresh
+                    </button>
+                    <form onSubmit={submitManualRevoke} className="md:col-span-5 grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <input
+                            value={bindingEmailInput}
+                            onChange={(event) => setBindingEmailInput(event.target.value)}
+                            placeholder="Revoke by email (e.g. student@email.com)"
+                            className="md:col-span-3 bg-bg-dark border border-border rounded-lg px-3 py-2 text-sm"
+                        />
+                        <button
+                            type="submit"
+                            disabled={revokeBindingMutation.isPending}
+                            className="md:col-span-2 bg-red-600/20 text-red-300 border border-red-500/40 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                        >
+                            {revokeBindingMutation.isPending ? 'Revoking...' : 'Revoke Binding By Email'}
+                        </button>
+                    </form>
+                </div>
+
+                {isBindingLoading ? (
+                    <div className="p-6">
+                        <LoadingSpinner />
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1100px]">
+                            <thead>
+                                <tr className="border-b border-border">
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Student</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Email</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Device</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Linked At</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Last Login</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(bindingData?.bindings?.length || 0) === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="text-center text-text-secondary py-8">
+                                            No active device bindings found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    bindingData?.bindings.map((binding) => (
+                                        <tr key={binding.id} className="border-b border-border/50 hover:bg-bg-hover align-top">
+                                            <td className="px-4 py-3 text-sm">
+                                                <p className="font-medium">{binding.fullName}</p>
+                                                <p className="text-xs text-text-secondary">{binding.enrollmentNo}</p>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-text-secondary">{binding.email}</td>
+                                            <td className="px-4 py-3 text-xs">
+                                                <p className="font-mono text-text-primary">{binding.linkedDeviceId || '—'}</p>
+                                                <p className="text-text-secondary">{binding.linkedDeviceLabel || '—'}</p>
+                                                <p className="text-text-secondary">{binding.linkedDevicePlatform || '—'}</p>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-text-secondary">
+                                                {binding.deviceLinkedAt ? new Date(binding.deviceLinkedAt).toLocaleString() : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-text-secondary">
+                                                {binding.lastLoginAt ? new Date(binding.lastLoginAt).toLocaleString() : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs">
+                                                <button
+                                                    disabled={revokeBindingMutation.isPending}
+                                                    onClick={() => handleRevokeBinding(binding.email)}
+                                                    className="px-3 py-1 rounded bg-red-600/20 text-red-300 border border-red-500/40 disabled:opacity-50"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {bindingData && bindingData.pages > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                        <span className="text-sm text-text-secondary">
+                            Page {bindingData.page} of {bindingData.pages} ({bindingData.total} bindings)
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={bindingPage <= 1}
+                                onClick={() => setBindingPage((prev) => prev - 1)}
+                                className="px-3 py-1 bg-bg-dark rounded text-sm disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+                            <button
+                                disabled={bindingPage >= bindingData.pages}
+                                onClick={() => setBindingPage((prev) => prev + 1)}
+                                className="px-3 py-1 bg-bg-dark rounded text-sm disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             <div className="bg-bg-card rounded-xl border border-border overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
