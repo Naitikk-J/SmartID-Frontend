@@ -83,10 +83,11 @@ export default function QrProjectorPage() {
     const {
         data: projectorQrData,
         isLoading: isLoadingProjectorQr,
+        refetch: refetchProjectorQr,
     } = useQuery({
         queryKey: ['qrProjectorData', projectEventId, projectQrType, projectGateId],
         enabled: isLiveGateProjector ? Boolean(projectGateId) : Boolean(projectEventId),
-        refetchInterval: isLiveGateProjector ? 20000 : false,
+        refetchInterval: projectQrType === 'STAY' ? 20000 : (isLiveGateProjector ? 20000 : false),
         queryFn: async () => {
             if (isLiveGateProjector) {
                 const response = await api.get('/qr/generate', {
@@ -104,7 +105,7 @@ export default function QrProjectorPage() {
                 const response = await api.get(`/events/${projectEventId}/stay/qr`)
                 return {
                     token: String(response.data?.data?.qr_token || ''),
-                    expiresAt: null,
+                    expiresAt: response.data?.data?.expires_at || response.data?.data?.expiresAt || null,
                 }
             }
 
@@ -118,7 +119,7 @@ export default function QrProjectorPage() {
     })
 
     useEffect(() => {
-        if (!projectorQrData?.expiresAt || projectQrType === 'STAY' || projectQrType === 'MESS') {
+        if (projectQrType !== 'STAY' || !projectorQrData?.expiresAt) {
             setProjectCountdown(0)
             return
         }
@@ -244,7 +245,7 @@ export default function QrProjectorPage() {
                             </div>
                             <div className="flex items-center gap-4 text-xs text-text-secondary">
                                 <span className="uppercase tracking-widest font-black">{isLiveGateProjector ? 'LIVE_GATE' : projectQrType} mode</span>
-                                {isLiveGateProjector ? (
+                                {(isLiveGateProjector || projectQrType === 'STAY') ? (
                                     <span className={`font-black ${projectCountdown <= 3 ? 'text-warning' : 'text-success'}`}>
                                         TTL: {projectCountdown > 0 ? `${projectCountdown}s` : 'Rotating'}
                                     </span>
