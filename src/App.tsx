@@ -28,6 +28,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 function getRoleHome(role?: string) {
+    if (role === 'SECURITY_GUARD') return '/qr-projector'
     if (role === 'WARDEN') return '/hostellers'
     return '/'
 }

@@ -17,12 +17,6 @@ export default function LoginPage() {
         setLoading(true)
         try {
             const { data: response } = await api.post('/auth/login', { email, password })
-            const user = response.data.user
-
-            if (user.role === 'SECURITY_GUARD') {
-                toast.error('Access Denied: Security Guards must use the Mobile App')
-                return
-            }
 
             setAuth(response.data)
             toast.success('Welcome back!')
