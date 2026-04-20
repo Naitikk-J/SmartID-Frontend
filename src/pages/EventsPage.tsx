@@ -6,6 +6,7 @@ import Modal from '../components/ui/Modal'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { Calendar, Download, Mail, Plus, QrCode, Trash2, Upload } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
 
 interface EventItem {
     id: string
@@ -592,6 +593,26 @@ export default function EventsPage() {
         setMessQrToken(String(firstRule?.qrToken || ''))
     }
 
+    const downloadMessQr = (): void => {
+        if (!messQrToken) {
+            toast.error('Load Mess QR first')
+            return
+        }
+
+        const canvas = document.getElementById('event-mess-qr') as HTMLCanvasElement | null
+        if (!canvas) {
+            toast.error('Unable to render mess QR image')
+            return
+        }
+
+        const url = canvas.toDataURL('image/png')
+        const link = document.createElement('a')
+        const safeEventName = (selectedEvent?.name || 'event').replace(/\s+/g, '_')
+        link.download = `${safeEventName}_mess_qr.png`
+        link.href = url
+        link.click()
+    }
+
     const handleDeleteEvent = (event: EventItem): void => {
         if (deleteEventMutation.isPending) return
 
@@ -728,6 +749,21 @@ export default function EventsPage() {
                     {messQrToken && (
                         <div className="bg-bg-dark border border-border rounded-lg p-3 space-y-2">
                             <p className="text-xs text-text-secondary">Static Mess QR Token (Single QR for all meals)</p>
+                            <div className="p-3 bg-white rounded-lg w-fit">
+                                <QRCodeCanvas
+                                    id="event-mess-qr"
+                                    value={messQrToken}
+                                    size={200}
+                                    level="H"
+                                    includeMargin={true}
+                                />
+                            </div>
+                            <button
+                                onClick={downloadMessQr}
+                                className="px-3 py-2 text-xs rounded bg-success/20 text-success flex items-center gap-2"
+                            >
+                                <Download size={14} /> Save/Download Mess QR
+                            </button>
                             <p className="text-xs break-all font-mono text-text-secondary">{messQrToken}</p>
                         </div>
                     )}
