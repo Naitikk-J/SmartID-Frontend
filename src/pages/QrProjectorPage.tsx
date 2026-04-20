@@ -20,7 +20,7 @@ const LIVE_GATE_PROJECT_OPTION = '__LIVE_GATE__'
 
 export default function QrProjectorPage() {
     const [projectEventId, setProjectEventId] = useState('')
-    const [projectQrType, setProjectQrType] = useState<'MESS' | 'STAY'>('MESS')
+    const [projectQrType, setProjectQrType] = useState<'MESS' | 'STAY'>('STAY')
     const [projectGateId, setProjectGateId] = useState('')
     const [projectCountdown, setProjectCountdown] = useState(0)
     const projectQrContainerRef = useRef<HTMLDivElement | null>(null)

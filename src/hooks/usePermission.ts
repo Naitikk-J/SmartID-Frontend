@@ -1,22 +1,22 @@
 import { useAuthStore } from '../store/authStore'
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-    Dashboard: ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN'],
+    Dashboard: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     'Live Feed': ['SUPER_ADMIN', 'HOD'],
-    Students: ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN'],
-    Hostellers: ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN'],
+    Students: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
+    Hostellers: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     'QR Projector': ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN', 'SECURITY_GUARD'],
     Attendance: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     'Exit Rules': ['SUPER_ADMIN', 'HOD'],
-    Events: ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN'],
+    Events: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     Library: ['SUPER_ADMIN', 'HOD'],
     Wallet: ['SUPER_ADMIN', 'HOD'],
     Elections: ['SUPER_ADMIN', 'HOD'],
-    Reports: ['SUPER_ADMIN', 'HOD', 'WARDEN'],
+    Reports: ['SUPER_ADMIN', 'HOD'],
     Health: ['SUPER_ADMIN', 'HOD'],
     'Admin Users': ['SUPER_ADMIN'],
     'Audit Log': ['SUPER_ADMIN'],
-    'Student Auth Logs': ['SUPER_ADMIN', 'WARDEN'],
+    'Student Auth Logs': ['SUPER_ADMIN'],
 }
 
 export function canRoleView(role: string, item: string): boolean {
