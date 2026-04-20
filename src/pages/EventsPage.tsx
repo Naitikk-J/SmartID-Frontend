@@ -250,6 +250,8 @@ export default function EventsPage() {
         buildDayWiseDrafts(1),
     )
     const [participantMealDrafts, setParticipantMealDrafts] = useState<Record<string, MealEditDraft>>({})
+    const [participantSearchInput, setParticipantSearchInput] = useState('')
+    const [participantSearchTerm, setParticipantSearchTerm] = useState('')
     const [manualParticipant, setManualParticipant] = useState<ManualParticipantForm>(emptyManualParticipantForm())
     const [form, setForm] = useState({
         name: '',
@@ -602,6 +604,23 @@ export default function EventsPage() {
             invalid: participantRows.length - valid,
         }
     }, [participantRows])
+
+    const filteredParticipants = useMemo(() => {
+        const participants = participantsQuery.data?.participants || []
+        const query = participantSearchTerm.trim().toLowerCase()
+
+        if (!query) return participants
+
+        return participants.filter((participant: any) => {
+            const fields = [
+                participant?.fullName,
+                participant?.email,
+                participant?.loginId,
+                participant?.enrollmentNo,
+            ]
+            return fields.some((value) => String(value || '').toLowerCase().includes(query))
+        })
+    }, [participantsQuery.data?.participants, participantSearchTerm])
 
     const onImportFile = async (file: File): Promise<void> => {
         const lowerName = file.name.toLowerCase()
@@ -1017,10 +1036,33 @@ export default function EventsPage() {
                     <div className="bg-bg-dark rounded-lg border border-border p-3">
                         <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold">Participants Meal Tracker (All Participants)</h4>
-                            <span className="text-xs text-text-secondary">Total: {participantsQuery.data?.total ?? 0}</span>
+                            <span className="text-xs text-text-secondary">Showing: {filteredParticipants.length} / {participantsQuery.data?.total ?? 0}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <input
+                                value={participantSearchInput}
+                                onChange={(e) => setParticipantSearchInput(e.target.value)}
+                                placeholder="Search by name, email, login ID, enrollment"
+                                className="w-full md:w-80 bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                            />
+                            <button
+                                onClick={() => setParticipantSearchTerm(participantSearchInput)}
+                                className="px-3 py-1.5 rounded bg-primary/20 text-primary text-xs"
+                            >
+                                Search Participant
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setParticipantSearchInput('')
+                                    setParticipantSearchTerm('')
+                                }}
+                                className="px-3 py-1.5 rounded bg-bg-hover text-xs"
+                            >
+                                Clear
+                            </button>
                         </div>
                         <div className="space-y-2 max-h-[34rem] overflow-y-auto">
-                            {(participantsQuery.data?.participants || []).map((participant: any) => {
+                            {filteredParticipants.map((participant: any) => {
                                 const stats = participant.mealStats || {}
                                 const draft = getDraftForParticipant(participant)
                                 const remainingText = stats.remaining == null ? 'Unlimited' : String(stats.remaining)
