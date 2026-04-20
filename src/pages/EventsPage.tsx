@@ -5,7 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import Modal from '../components/ui/Modal'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
-import { Calendar, Download, Mail, Plus, QrCode, Trash2, Upload } from 'lucide-react'
+import { Calendar, Download, Mail, Plus, QrCode, Trash2, Upload, UserPlus } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 
 interface EventItem {
@@ -46,21 +46,76 @@ interface DayWiseMealLimitDraft {
     coupons: string
 }
 
+interface ManualParticipantForm {
+    fullName: string
+    email: string
+    phone: string
+    enrollmentNo: string
+    department: string
+    year: string
+    studentType: string
+}
+
 function toIso(date: string, time?: string): string {
     if (!time) return new Date(date).toISOString()
     return new Date(`${date}T${time}:00`).toISOString()
 }
 
+function normalizeHeaderKey(value: string): string {
+    return String(value || '')
+        .replace(/\u00A0/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+}
+
+function toCleanString(value: unknown): string {
+    if (value == null) return ''
+    return String(value).replace(/\u00A0/g, ' ').trim()
+}
+
+function normalizeStudentType(value: string): string | undefined {
+    const upper = String(value || '').trim().toUpperCase()
+    if (!upper) return undefined
+
+    if (upper.includes('HOSTELLER_GIRLS') || upper.includes('HOSTELLER GIRLS')) return 'HOSTELLER_GIRLS'
+    if (upper.includes('HOSTELLER_BOYS') || upper.includes('HOSTELLER BOYS')) return 'HOSTELLER_BOYS'
+    if (upper.includes('DAY_SCHOLAR') || upper.includes('DAY SCHOLAR') || upper.includes('STUDENT')) return 'DAY_SCHOLAR'
+
+    return undefined
+}
+
+function getRawField(raw: Record<string, unknown>, aliases: string[]): unknown {
+    for (const alias of aliases) {
+        if (Object.prototype.hasOwnProperty.call(raw, alias)) {
+            const value = raw[alias]
+            if (value != null && String(value).trim() !== '') return value
+        }
+    }
+
+    const normalizedMap = new Map<string, unknown>()
+    Object.entries(raw).forEach(([key, value]) => {
+        normalizedMap.set(normalizeHeaderKey(key), value)
+    })
+
+    for (const alias of aliases) {
+        const value = normalizedMap.get(normalizeHeaderKey(alias))
+        if (value != null && String(value).trim() !== '') return value
+    }
+
+    return ''
+}
+
 function normalizeParticipantRows(rawRows: Record<string, unknown>[]): ParticipantImportRow[] {
     return rawRows
         .map((raw) => {
-            const fullName = String(raw.fullName || raw.name || raw.studentName || raw.student_name || '').trim()
-            const email = String(raw.email || raw.loginId || raw.login_id || '').trim().toLowerCase()
-            const phone = String(raw.phone || raw.mobile || raw.password || '').trim()
-            const enrollmentNo = String(raw.enrollmentNo || raw.enrollment || raw.enrollment_no || '').trim()
-            const department = String(raw.department || '').trim()
-            const yearRaw = Number(raw.year || 0)
-            const studentType = String(raw.studentType || raw.student_type || '').trim().toUpperCase()
+            const fullName = toCleanString(getRawField(raw, ['fullName', 'name', 'studentName', 'student_name', 'Name', 'Name ']))
+            const email = toCleanString(getRawField(raw, ['email', 'loginId', 'login_id', 'Email', 'Email ID'])).toLowerCase()
+            const phone = toCleanString(getRawField(raw, ['phone', 'mobile', 'Mobile', 'Mobile No.', 'password']))
+            const enrollmentNo = toCleanString(getRawField(raw, ['enrollmentNo', 'enrollment', 'enrollment_no', 'Enrollment No']))
+            const department = toCleanString(getRawField(raw, ['department', 'Institue Name', 'Institute Name', 'Allocated Nodal Centre', 'Team Name- Team Id-Participant Type']))
+            const yearRaw = Number(getRawField(raw, ['year', 'Year']) || 0)
+            const studentType = normalizeStudentType(toCleanString(getRawField(raw, ['studentType', 'student_type', 'Participant Type', 'Team Leader/ Team Member/Mentor', 'Team Name- Team Id-Participant Type'])))
 
             return {
                 fullName,
@@ -73,6 +128,18 @@ function normalizeParticipantRows(rawRows: Record<string, unknown>[]): Participa
             }
         })
         .filter((row) => row.fullName && row.email && row.phone)
+}
+
+function emptyManualParticipantForm(): ManualParticipantForm {
+    return {
+        fullName: '',
+        email: '',
+        phone: '',
+        enrollmentNo: '',
+        department: '',
+        year: '',
+        studentType: 'DAY_SCHOLAR',
+    }
 }
 
 function parseRecipients(value: string): string[] {
@@ -183,6 +250,7 @@ export default function EventsPage() {
         buildDayWiseDrafts(1),
     )
     const [participantMealDrafts, setParticipantMealDrafts] = useState<Record<string, MealEditDraft>>({})
+    const [manualParticipant, setManualParticipant] = useState<ManualParticipantForm>(emptyManualParticipantForm())
     const [form, setForm] = useState({
         name: '',
         description: '',
@@ -208,9 +276,40 @@ export default function EventsPage() {
     )
 
     const participantsQuery = useQuery({
-        queryKey: ['event-participants', selectedEventId],
+        queryKey: ['event-participants-all', selectedEventId],
         enabled: Boolean(selectedEventId),
-        queryFn: () => api.get(`/events/${selectedEventId}/participants`, { params: { limit: 100 } }).then((r) => r.data.data),
+        queryFn: async () => {
+            if (!selectedEventId) {
+                return { participants: [], total: 0, page: 1, limit: 0, pages: 0 }
+            }
+
+            const limit = 200
+            let page = 1
+            let pages = 1
+            let total = 0
+            let eventMealSettings: any = null
+            const participants: any[] = []
+
+            while (page <= pages) {
+                const response = await api.get(`/events/${selectedEventId}/participants`, { params: { page, limit } })
+                const data = response.data?.data || {}
+
+                participants.push(...(data.participants || []))
+                total = Number(data.total || participants.length)
+                pages = Number(data.pages || 1)
+                eventMealSettings = data.eventMealSettings || eventMealSettings
+                page += 1
+            }
+
+            return {
+                participants,
+                total,
+                page: 1,
+                limit: participants.length,
+                pages: 1,
+                eventMealSettings,
+            }
+        },
     })
 
     const staySummaryQuery = useQuery({
@@ -272,7 +371,7 @@ export default function EventsPage() {
         mutationFn: (payload: { eventId: string; participants: ParticipantImportRow[] }) =>
             api.post(`/events/${payload.eventId}/participants/import`, { participants: payload.participants }),
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
+            qc.invalidateQueries({ queryKey: ['event-participants-all', selectedEventId] })
             qc.invalidateQueries({ queryKey: ['events'] })
             toast.success('Participants imported')
             setParticipantRows([])
@@ -297,7 +396,7 @@ export default function EventsPage() {
             api.patch(`/events/${selectedEventId}/meal-settings`, payload),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['events'] })
-            qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
+            qc.invalidateQueries({ queryKey: ['event-participants-all', selectedEventId] })
             toast.success('Meal settings updated')
         },
     })
@@ -309,7 +408,7 @@ export default function EventsPage() {
                 mealsConsumed: payload.mealsConsumed,
             }),
         onSuccess: (_, variables) => {
-            qc.invalidateQueries({ queryKey: ['event-participants', selectedEventId] })
+            qc.invalidateQueries({ queryKey: ['event-participants-all', selectedEventId] })
             setParticipantMealDrafts((prev) => {
                 const next = { ...prev }
                 delete next[variables.participantId]
@@ -528,6 +627,55 @@ export default function EventsPage() {
         const normalized = normalizeParticipantRows(rows)
         setParticipantRows(normalized)
         toast.success(`Loaded ${normalized.length} participants from sheet`)
+    }
+
+    const addManualParticipantToQueue = (): void => {
+        const fullName = manualParticipant.fullName.trim()
+        const email = manualParticipant.email.trim().toLowerCase()
+        const phone = manualParticipant.phone.trim()
+        const enrollmentNo = manualParticipant.enrollmentNo.trim()
+        const department = manualParticipant.department.trim()
+        const studentType = normalizeStudentType(manualParticipant.studentType) || undefined
+        const yearValue = manualParticipant.year.trim() === '' ? undefined : Number(manualParticipant.year)
+
+        if (!fullName) {
+            toast.error('Full name is required')
+            return
+        }
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+            toast.error('Valid email is required')
+            return
+        }
+        if (phone.length < 4) {
+            toast.error('Phone should be at least 4 characters')
+            return
+        }
+        if (yearValue !== undefined && (!Number.isInteger(yearValue) || yearValue < 1 || yearValue > 4)) {
+            toast.error('Year should be between 1 and 4')
+            return
+        }
+
+        const payload: ParticipantImportRow = {
+            fullName,
+            email,
+            phone,
+            enrollmentNo: enrollmentNo || undefined,
+            department: department || undefined,
+            year: yearValue,
+            studentType,
+        }
+
+        setParticipantRows((prev) => {
+            const idx = prev.findIndex((row) => row.email === email)
+            if (idx === -1) return [...prev, payload]
+
+            const next = [...prev]
+            next[idx] = payload
+            return next
+        })
+
+        setManualParticipant(emptyManualParticipantForm())
+        toast.success('Participant added to import queue')
     }
 
     const handleCreateEvent = async (): Promise<void> => {
@@ -868,7 +1016,7 @@ export default function EventsPage() {
 
                     <div className="bg-bg-dark rounded-lg border border-border p-3">
                         <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold">Participants Meal Tracker (Top 100)</h4>
+                            <h4 className="font-semibold">Participants Meal Tracker (All Participants)</h4>
                             <span className="text-xs text-text-secondary">Total: {participantsQuery.data?.total ?? 0}</span>
                         </div>
                         <div className="space-y-2 max-h-[34rem] overflow-y-auto">
@@ -976,6 +1124,85 @@ export default function EventsPage() {
                         >
                             Import To Selected Event
                         </button>
+
+                        <div className="pt-2 border-t border-border space-y-2">
+                            <div className="flex items-center gap-2">
+                                <UserPlus size={14} />
+                                <h5 className="text-xs font-semibold">Manual Participant Entry</h5>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+                                <input
+                                    value={manualParticipant.fullName}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, fullName: e.target.value }))}
+                                    placeholder="Full Name"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <input
+                                    value={manualParticipant.email}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, email: e.target.value }))}
+                                    placeholder="Email"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <input
+                                    value={manualParticipant.phone}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, phone: e.target.value }))}
+                                    placeholder="Phone"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <input
+                                    value={manualParticipant.enrollmentNo}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, enrollmentNo: e.target.value }))}
+                                    placeholder="Enrollment No (optional)"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <input
+                                    value={manualParticipant.department}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, department: e.target.value }))}
+                                    placeholder="Department (optional)"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={4}
+                                    value={manualParticipant.year}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, year: e.target.value }))}
+                                    placeholder="Year (1-4)"
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                />
+                                <select
+                                    value={manualParticipant.studentType}
+                                    onChange={(e) => setManualParticipant((prev) => ({ ...prev, studentType: e.target.value }))}
+                                    className="bg-bg-card border border-border rounded px-2 py-1.5 text-xs"
+                                >
+                                    <option value="DAY_SCHOLAR">DAY_SCHOLAR</option>
+                                    <option value="HOSTELLER_BOYS">HOSTELLER_BOYS</option>
+                                    <option value="HOSTELLER_GIRLS">HOSTELLER_GIRLS</option>
+                                </select>
+                                <button
+                                    onClick={addManualParticipantToQueue}
+                                    className="px-3 py-1.5 text-xs rounded bg-primary/20 text-primary"
+                                >
+                                    Add Manual Entry
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border space-y-2">
+                            <h5 className="text-xs font-semibold">Loaded Participant Preview ({participantRows.length})</h5>
+                            <div className="max-h-72 overflow-y-auto space-y-1">
+                                {participantRows.length === 0 ? (
+                                    <p className="text-xs text-text-secondary">No rows loaded yet.</p>
+                                ) : (
+                                    participantRows.map((row, index) => (
+                                        <div key={`${row.email}-${index}`} className="text-[11px] border border-border rounded px-2 py-1.5">
+                                            <p className="font-semibold">{row.fullName}</p>
+                                            <p className="text-text-secondary">{row.email} • {row.phone}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
