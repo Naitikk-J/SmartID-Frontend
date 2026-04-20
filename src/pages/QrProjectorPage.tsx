@@ -87,7 +87,7 @@ export default function QrProjectorPage() {
     } = useQuery({
         queryKey: ['qrProjectorData', projectEventId, projectQrType, projectGateId],
         enabled: isLiveGateProjector ? Boolean(projectGateId) : Boolean(projectEventId),
-        refetchInterval: 20000,
+        refetchInterval: isLiveGateProjector ? 20000 : false,
         queryFn: async () => {
             if (isLiveGateProjector) {
                 const response = await api.get('/qr/generate', {
@@ -105,35 +105,32 @@ export default function QrProjectorPage() {
                 const response = await api.get(`/events/${projectEventId}/stay/qr`)
                 return {
                     token: String(response.data?.data?.qr_token || ''),
-                    expiresAt: response.data?.data?.expires_at || response.data?.data?.expiresAt || null,
+                    expiresAt: null,
                 }
             }
 
             const response = await api.get(`/events/${projectEventId}/mess/qr`)
             const shared = String(response.data?.data?.sharedQrToken || '')
-            const firstRule = (response.data?.data?.rules || [])[0] as { qrToken?: string; expiresAt?: string } | undefined
             return {
-                token: shared || String(firstRule?.qrToken || ''),
-                expiresAt: response.data?.data?.sharedQrExpiresAt || firstRule?.expiresAt || null,
+                token: shared,
+                expiresAt: null,
             }
         },
     })
 
     useEffect(() => {
-        if (!projectorQrData?.expiresAt) {
+        if (!projectorQrData?.expiresAt || projectQrType === 'STAY' || projectQrType === 'MESS') {
             setProjectCountdown(0)
             return
         }
-
         const tick = () => {
             const remainingMs = new Date(projectorQrData.expiresAt as string).getTime() - Date.now()
             setProjectCountdown(Math.max(0, Math.ceil(remainingMs / 1000)))
         }
-
         tick()
         const timerId = window.setInterval(tick, 1000)
         return () => window.clearInterval(timerId)
-    }, [projectorQrData?.expiresAt])
+    }, [projectorQrData?.expiresAt, projectQrType])
 
     const toggleProjectorFullscreen = async () => {
         try {
@@ -248,16 +245,12 @@ export default function QrProjectorPage() {
                             </div>
                             <div className="flex items-center gap-4 text-xs text-text-secondary">
                                 <span className="uppercase tracking-widest font-black">{isLiveGateProjector ? 'LIVE_GATE' : projectQrType} mode</span>
-                                <span className={`font-black ${projectCountdown <= 3 ? 'text-warning' : 'text-success'}`}>
-                                    TTL: {projectCountdown > 0 ? `${projectCountdown}s` : 'Rotating'}
-                                </span>
+                                {isLiveGateProjector ? (
+                                    <span className={`font-black ${projectCountdown <= 3 ? 'text-warning' : 'text-success'}`}>
+                                        TTL: {projectCountdown > 0 ? `${projectCountdown}s` : 'Rotating'}
+                                    </span>
+                                ) : null}
                             </div>
-                            <button
-                                onClick={() => refetchProjectorQr()}
-                                className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-text-primary text-xs font-black uppercase tracking-wider flex items-center gap-2"
-                            >
-                                <RefreshCw size={14} /> Refresh now
-                            </button>
                         </div>
                     ) : (
                         <p className="text-sm text-warning">No QR available. Select an active event/gate and retry.</p>
