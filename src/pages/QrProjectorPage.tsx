@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Maximize2, QrCode, RefreshCw } from 'lucide-react'
+import { Maximize2, QrCode } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import toast from 'react-hot-toast'
 import api from '../api/axios'
@@ -83,7 +83,6 @@ export default function QrProjectorPage() {
     const {
         data: projectorQrData,
         isLoading: isLoadingProjectorQr,
-        refetch: refetchProjectorQr,
     } = useQuery({
         queryKey: ['qrProjectorData', projectEventId, projectQrType, projectGateId],
         enabled: isLiveGateProjector ? Boolean(projectGateId) : Boolean(projectEventId),
