@@ -14,6 +14,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     Elections: ['SUPER_ADMIN', 'HOD'],
     Reports: ['SUPER_ADMIN', 'HOD'],
     Health: ['SUPER_ADMIN', 'HOD'],
+    Geofencing: ['SUPER_ADMIN', 'HOD', 'WARDEN'],
     'Admin Users': ['SUPER_ADMIN'],
     'Audit Log': ['SUPER_ADMIN'],
     'Student Auth Logs': ['SUPER_ADMIN'],
