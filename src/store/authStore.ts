@@ -5,9 +5,11 @@ interface User {
     id: number
     name: string
     email: string
-    role: 'SUPER_ADMIN' | 'HOD' | 'FACULTY' | 'WARDEN' | 'SECURITY_GUARD'
+    role: 'SUPER_ADMIN' | 'HOD' | 'FACULTY' | 'WARDEN' | 'SECURITY_GUARD' | 'STUDENT'
     department?: string | null
     module?: string | null
+    userType?: string
+    appAccess?: 'FULL' | 'EVENT_ONLY'
 }
 
 interface AuthState {

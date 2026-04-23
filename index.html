@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; connect-src * ws: wss:; font-src 'self' data:; frame-src *;">
+        content="default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; img-src * data: blob:; connect-src * ws: wss:; font-src 'self' data: https://fonts.gstatic.com; frame-src *;">
     <link rel="icon" type="image/png" href="" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Smart ID</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>

@@ -1,32 +1,136 @@
 import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { Lock, Mail, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
+
+declare global {
+    interface Window {
+        __MITS_GSI_INITIALIZED__?: boolean
+    }
+}
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const setAuth = useAuthStore((s) => s.setAuth)
     const navigate = useNavigate()
+    const studentPortalUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'smartid://login'
+    const studentPortalFallbackUrl = import.meta.env.VITE_STUDENT_PORTAL_FALLBACK_URL as string | undefined
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
+    const decodeGoogleEmailFromIdToken = (idToken: string): string | null => {
         try {
-            const { data: response } = await api.post('/auth/login', { email, password })
-
-            setAuth(response.data)
-            toast.success('Welcome back!')
-            navigate('/')
-        } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Login failed')
-        } finally {
-            setLoading(false)
+            const parts = idToken.split('.')
+            if (parts.length < 2) return null
+            const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+            const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+            const payload = JSON.parse(atob(padded))
+            return typeof payload?.email === 'string' ? payload.email.toLowerCase() : null
+        } catch {
+            return null
         }
     }
+
+    const redirectToStudentSide = () => {
+        // On desktop browsers, custom app scheme may not be registered.
+        if (studentPortalUrl.startsWith('smartid://')) {
+            const start = Date.now()
+            window.location.href = studentPortalUrl
+            window.setTimeout(() => {
+                const elapsed = Date.now() - start
+                if (elapsed < 1800) {
+                    if (studentPortalFallbackUrl) {
+                        window.location.href = studentPortalFallbackUrl
+                        return
+                    }
+                    toast.error('Student app is not installed on this device. Please login from the official student app.')
+                }
+            }, 1200)
+            return
+        }
+
+        window.location.href = studentPortalUrl
+    }
+
+    const handleAuthSuccess = (authPayload: any) => {
+        const authData = authPayload?.data || authPayload
+        const role = authData?.user?.role
+        const emailValue = String(authData?.user?.email || '').toLowerCase()
+
+        if (role === 'STUDENT' || emailValue.endsWith('@mitsgwl.ac.in')) {
+            toast('Student account detected. Redirecting to student side...')
+            redirectToStudentSide()
+            return
+        }
+
+        setAuth(authData)
+        toast.success('Welcome back!')
+        navigate('/')
+    }
+
+
+    // Google Identity Services JS API
+    const googleBtnRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (!googleClientId) return
+
+        // @ts-ignore
+        if (window.google && googleBtnRef.current) {
+            if (!window.__MITS_GSI_INITIALIZED__) {
+                // @ts-ignore
+                window.google.accounts.id.initialize({
+                    client_id: googleClientId,
+                    callback: async (response: any) => {
+                        const idToken = response?.credential
+                        if (!idToken || typeof idToken !== 'string') {
+                            toast.error('Google login credential not received. Check authorized origin/client id.')
+                            return
+                        }
+
+                        const tokenEmail = decodeGoogleEmailFromIdToken(idToken)
+                        if (tokenEmail?.endsWith('@mitsgwl.ac.in')) {
+                            toast('Student account detected. Redirecting to student side...')
+                            redirectToStudentSide()
+                            return
+                        }
+
+                        if (
+                            tokenEmail
+                            && tokenEmail !== 'naitikjainjbp@gmail.com'
+                            && !tokenEmail.endsWith('@mitsgwalior.in')
+                        ) {
+                            toast.error('Use only @mitsgwalior.in admin account (or super admin) on this portal.')
+                            return
+                        }
+
+                        setLoading(true)
+                        try {
+                            const { data: resp } = await api.post('/auth/google', { idToken })
+                            handleAuthSuccess(resp.data)
+                        } catch (err: any) {
+                            toast.error(err.response?.data?.error || err.message || 'Google login failed')
+                        } finally {
+                            setLoading(false)
+                        }
+                    },
+                    ux_mode: 'popup',
+                })
+                window.__MITS_GSI_INITIALIZED__ = true
+            }
+
+            googleBtnRef.current.innerHTML = ''
+            // @ts-ignore
+            window.google.accounts.id.renderButton(googleBtnRef.current, {
+                theme: 'filled_black',
+                size: 'large',
+                shape: 'pill',
+                text: 'continue_with',
+                width: 320,
+            })
+        }
+    }, [googleClientId])
 
     return (
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg-dark">
@@ -65,53 +169,20 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary ml-1">Email Identity</label>
-                            <div className="relative group/input">
-                                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within/input:text-primary transition-colors" />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-text-primary focus:border-primary/40 focus:bg-white/[0.08] focus:outline-none transition-all placeholder:text-text-secondary/30"
-                                    placeholder="Enter system email"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-text-secondary ml-1">Secure Password</label>
-                            <div className="relative group/input">
-                                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within/input:text-primary transition-colors" />
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-text-primary focus:border-primary/40 focus:bg-white/[0.08] focus:outline-none transition-all placeholder:text-text-secondary/30"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full group/btn relative bg-primary text-white font-black text-sm uppercase tracking-widest py-4 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                        >
-                            <div className="relative z-10 flex items-center justify-center gap-2">
-                                {loading ? 'Validating Token...' : (
-                                    <>
-                                        Authorize Access
-                                        <ShieldCheck size={18} />
-                                    </>
-                                )}
-                            </div>
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
-                        </button>
-                    </form>
+                    <div className="flex flex-col items-center">
+                        {googleClientId ? (
+                            <>
+                                <div ref={googleBtnRef} style={{ width: 320 }} />
+                                <p className="text-[10px] text-text-secondary mt-6 text-center opacity-60 max-w-xs">
+                                    Sign in with your @mitsgwalior.in or admin Google account
+                                </p>
+                            </>
+                        ) : (
+                            <p className="text-xs text-text-secondary text-center">
+                                Google login is unavailable. Set `VITE_GOOGLE_CLIENT_ID` in environment.
+                            </p>
+                        )}
+                    </div>
 
                     <div className="mt-10 pt-8 border-t border-white/5 text-center">
                         <p className="text-[9px] font-black text-text-secondary uppercase tracking-[0.3em] opacity-40">
