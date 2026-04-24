@@ -153,6 +153,16 @@ export default function AttendancePage() {
     }, [])
 
     useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && projectorSessionId) {
+                void closeProjectorView()
+            }
+        }
+        document.addEventListener('keydown', handleKeyDown)
+        return () => document.removeEventListener('keydown', handleKeyDown)
+    }, [projectorSessionId])
+
+    useEffect(() => {
         if (!projectorSessionId) return
         if (!projectorSession) {
             setProjectorSessionId('')
@@ -836,8 +846,8 @@ export default function AttendancePage() {
             )}
 
             {projectorSessionId && (
-                <div className="fixed inset-0 z-70 bg-black/95 text-white p-5 md:p-8">
-                    <div ref={projectorContainerRef} className="h-full w-full max-w-7xl mx-auto flex flex-col">
+                <div ref={projectorContainerRef} className="fixed inset-0 z-[70] bg-black text-white p-5 md:p-8">
+                    <div className="h-full w-full max-w-7xl mx-auto flex flex-col">
                         <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
                             <div>
                                 <h3 className="text-2xl font-bold tracking-tight">Attendance QR Projector</h3>
