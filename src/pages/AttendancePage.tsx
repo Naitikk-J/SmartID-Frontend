@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { ClipboardCheck, QrCode, RefreshCw, CheckCircle, XCircle, UserCheck, Maximize2, X } from 'lucide-react'
+import { ClipboardCheck, RefreshCw, CheckCircle, XCircle, UserCheck, Maximize2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { QRCodeSVG } from 'qrcode.react'
 

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
@@ -13,7 +12,6 @@ declare global {
 }
 
 export default function LoginPage() {
-    const [loading, setLoading] = useState(false)
     const setAuth = useAuthStore((s) => s.setAuth)
     const navigate = useNavigate()
     const studentPortalUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'smartid://login'
@@ -105,14 +103,11 @@ export default function LoginPage() {
                             return
                         }
 
-                        setLoading(true)
                         try {
                             const { data: resp } = await api.post('/auth/google', { idToken })
                             handleAuthSuccess(resp.data)
                         } catch (err: any) {
                             toast.error(err.response?.data?.error || err.message || 'Google login failed')
-                        } finally {
-                            setLoading(false)
                         }
                     },
                     ux_mode: 'popup',
