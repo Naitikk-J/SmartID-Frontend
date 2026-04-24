@@ -163,7 +163,7 @@ export default function GeofencingPage() {
         onError: () => toast.error('Unable to update gate geofence'),
     })
 
-    const useCurrentLocation = () => {
+    const useCurrentLocationForGate = () => {
         if (!navigator.geolocation) {
             toast.error('Browser location is not available on this device')
             return
@@ -189,6 +189,32 @@ export default function GeofencingPage() {
         )
     }
 
+    const useCurrentLocationForGlobal = () => {
+        if (!navigator.geolocation) {
+            toast.error('Browser location is not available on this device')
+            return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = Number(position.coords.latitude.toFixed(6))
+                const lng = Number(position.coords.longitude.toFixed(6))
+                setSettingsForm((prev) => ({
+                    ...prev,
+                    campusCenterLat: lat,
+                    campusCenterLng: lng,
+                }))
+                toast.success('Current browser location loaded in global settings form')
+            },
+            () => toast.error('Unable to read browser location'),
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            },
+        )
+    }
+
     if (isLoadingSettings) return <LoadingSpinner />
 
     return (
@@ -196,10 +222,10 @@ export default function GeofencingPage() {
             <div>
                 <h2 className="text-2xl font-bold text-text-primary">Geofencing Control Center</h2>
                 <p className="text-sm text-text-secondary mt-1">
-                    Campus, attendance, event and access geofencing settings ko ek hi page se update karein.
+                    Update campus, attendance, event, and access geofencing settings from a single page.
                 </p>
                 <p className="text-xs text-warning mt-2">
-                    Note: Runtime settings update hoti hain. Server restart ke baad env defaults apply ho sakte hain.
+                    Note: Settings are updated at runtime. Environmental defaults may be restored after a server restart.
                 </p>
             </div>
 
@@ -276,10 +302,17 @@ export default function GeofencingPage() {
                         checked={settingsForm.accessRequireGeofence}
                         onChange={(e) => setSettingsForm((prev) => ({ ...prev, accessRequireGeofence: e.target.checked }))}
                     />
-                    Access scan me geofence mandatory karein
+                    Require geofencing for access scans
                 </label>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={useCurrentLocationForGlobal}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-bg-dark text-text-primary"
+                    >
+                        <LocateFixed size={16} />
+                        Use Current Location
+                    </button>
                     <button
                         onClick={() => saveSettingsMutation.mutate()}
                         disabled={saveSettingsMutation.isPending}
@@ -352,7 +385,7 @@ export default function GeofencingPage() {
 
                         <div className="flex flex-wrap items-center gap-2">
                             <button
-                                onClick={useCurrentLocation}
+                                onClick={useCurrentLocationForGate}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-bg-dark text-text-primary"
                             >
                                 <LocateFixed size={15} />
@@ -404,7 +437,7 @@ export default function GeofencingPage() {
                             </>
                         ) : (
                             <div className="h-full min-h-64 flex items-center justify-center text-sm text-text-secondary px-4 text-center">
-                                Gate select karke geofence coordinates set karein.
+                                Select a gate to configure its geofence coordinates.
                             </div>
                         )}
                     </div>
