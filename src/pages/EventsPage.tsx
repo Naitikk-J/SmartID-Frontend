@@ -263,6 +263,7 @@ export default function EventsPage() {
         isStayHostel: true,
         hostelGateLabel: 'Event Hostel Gate',
         timezone: 'Asia/Kolkata',
+        appliesTo: 'ALL',
     })
 
     const qc = useQueryClient()
@@ -725,6 +726,7 @@ export default function EventsPage() {
             isStayHostel: form.isStayHostel,
             hostelGateLabel: form.hostelGateLabel.trim() || null,
             timezone: form.timezone,
+            appliesTo: [form.appliesTo],
             participants: participantRows,
             reportRecipients: parseRecipients(recipientInput),
         }
@@ -1304,6 +1306,18 @@ export default function EventsPage() {
                             placeholder="Hostel Gate Label"
                             className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
                         />
+                        <select
+                            value={form.appliesTo}
+                            onChange={(e) => setForm((prev) => ({ ...prev, appliesTo: e.target.value }))}
+                            className="bg-bg-dark border border-border rounded px-3 py-2 text-sm"
+                        >
+                            <option value="ALL">Available for All Students</option>
+                            <option value="BTECH CSE">BTECH CSE</option>
+                            <option value="BTECH IT">BTECH IT</option>
+                            <option value="BTECH MAC">BTECH MAC</option>
+                            <option value="MCA">MCA</option>
+                            <option value="MBA">MBA</option>
+                        </select>
                         <label className="flex items-center gap-2 text-sm">
                             <input
                                 type="checkbox"
