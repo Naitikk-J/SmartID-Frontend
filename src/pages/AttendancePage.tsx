@@ -5,7 +5,6 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { ClipboardCheck, RefreshCw, CheckCircle, XCircle, UserCheck, Maximize2, X, Download, Clock, History } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { QRCodeSVG } from 'qrcode.react'
-import { useAuthStore } from '../store/authStore'
 
 interface Subject {
     id: string
@@ -100,7 +99,6 @@ export default function AttendancePage() {
     const [windowMinutes, setWindowMinutes] = useState(15)
     const [classListId, setClassListId] = useState('')
     const [activeTab, setActiveTab] = useState<'create' | 'live' | 'history'>('create')
-    const authUser = useAuthStore((s) => s.user)
     const [selectedSessionId, setSelectedSessionId] = useState('')
     const [lastScanNotification, setLastScanNotification] = useState<Student | null>(null)
     const [uploadName, setUploadName] = useState('')
