@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { ClipboardCheck, RefreshCw, CheckCircle, XCircle, UserCheck, Maximize2, X } from 'lucide-react'
+import { ClipboardCheck, RefreshCw, CheckCircle, XCircle, UserCheck, Maximize2, X, Download, Clock, History } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { QRCodeSVG } from 'qrcode.react'
+import { useAuthStore } from '../store/authStore'
 
 interface Subject {
     id: string
@@ -20,10 +21,14 @@ interface AttendanceSession {
     classListId?: string
     qrMode?: string
     qrValiditySeconds?: number
+    windowMinutes?: number
     qrToken?: string
     qrExpiresAt?: string
     startedAt?: string
+    closedAt?: string
     subject?: Subject
+    faculty?: { id: string; name: string; email: string }
+    _count?: { records: number }
     marked?: Student[]
     unmarked?: Student[]
     totalStudents?: number
@@ -94,7 +99,8 @@ export default function AttendancePage() {
     const [qrValiditySeconds, setQrValiditySeconds] = useState(60)
     const [windowMinutes, setWindowMinutes] = useState(15)
     const [classListId, setClassListId] = useState('')
-    const [activeTab, setActiveTab] = useState<'create' | 'live'>('create')
+    const [activeTab, setActiveTab] = useState<'create' | 'live' | 'history'>('create')
+    const authUser = useAuthStore((s) => s.user)
     const [selectedSessionId, setSelectedSessionId] = useState('')
     const [lastScanNotification, setLastScanNotification] = useState<Student | null>(null)
     const [uploadName, setUploadName] = useState('')
@@ -120,7 +126,13 @@ export default function AttendancePage() {
     const { data: sessions, isLoading: isLoadingSessions } = useQuery<AttendanceSession[]>({
         queryKey: ['attendance', 'sessions'],
         queryFn: () => api.get('/attendance/sessions', { params: { status: 'OPEN' } }).then((r) => r.data.data.sessions),
-        staleTime: 1000 * 60 * 10,
+        refetchInterval: 30000,
+    })
+
+    const { data: historySessions, isLoading: isLoadingHistory } = useQuery<AttendanceSession[]>({
+        queryKey: ['attendance', 'sessions', 'history'],
+        queryFn: () => api.get('/attendance/sessions', { params: { limit: 50 } }).then((r) => r.data.data.sessions),
+        enabled: activeTab === 'history',
     })
 
     const { data: defaulters, isLoading: isLoadingDefaulters } = useQuery({
@@ -557,29 +569,54 @@ export default function AttendancePage() {
         )
     }
 
+    const handleDownloadCsv = async (sessionId: string) => {
+        try {
+            const response = await api.get(`/attendance/sessions/${sessionId}/export`, { responseType: 'blob' })
+            const blob = new Blob([response.data], { type: 'text/csv' })
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            const disposition = response.headers['content-disposition']
+            const filename = disposition?.match(/filename="?(.+?)"?$/)?.[1] || `attendance_${sessionId}.csv`
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            toast.success('CSV downloaded!')
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Failed to download CSV')
+        }
+    }
+
+    const getSessionRemainingTime = (session: AttendanceSession): string | null => {
+        if (session.status !== 'OPEN' || !session.startedAt || !session.windowMinutes) return null
+        const endMs = new Date(session.startedAt).getTime() + session.windowMinutes * 60 * 1000
+        const remainMs = endMs - Date.now()
+        if (remainMs <= 0) return 'Expired'
+        const mins = Math.floor(remainMs / 60000)
+        const secs = Math.floor((remainMs % 60000) / 1000)
+        return `${mins}m ${secs}s left`
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2"><ClipboardCheck size={28} /> Attendance</h2>
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => setActiveTab('create')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'create'
-                                ? 'bg-primary text-white'
-                                : 'bg-bg-card border border-border text-text-secondary hover:text-text-primary'
-                            }`}
-                    >
-                        Create Session
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('live')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'live'
-                                ? 'bg-primary text-white'
-                                : 'bg-bg-card border border-border text-text-secondary hover:text-text-primary'
-                            }`}
-                    >
-                        Live Console
-                    </button>
+                    {(['create', 'live', 'history'] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${activeTab === tab
+                                    ? 'bg-primary text-white'
+                                    : 'bg-bg-card border border-border text-text-secondary hover:text-text-primary'
+                                }`}
+                        >
+                            {tab === 'history' && <History size={14} />}
+                            {tab === 'create' ? 'Create Session' : tab === 'live' ? 'Live Console' : 'History'}
+                        </button>
+                    ))}
                 </div>
             </div>
 

@@ -122,7 +122,7 @@ export default function LoginPage() {
                 size: 'large',
                 shape: 'pill',
                 text: 'continue_with',
-                width: 320,
+                width: '100%',
             })
         }
     }, [googleClientId])
@@ -167,7 +167,7 @@ export default function LoginPage() {
                     <div className="flex flex-col items-center">
                         {googleClientId ? (
                             <>
-                                <div ref={googleBtnRef} style={{ width: 320 }} />
+                                <div ref={googleBtnRef} style={{ width: '100%', maxWidth: 320 }} />
                                 <p className="text-[10px] text-text-secondary mt-6 text-center opacity-60 max-w-xs">
                                     Sign in with your @mitsgwalior.in or admin Google account
                                 </p>
