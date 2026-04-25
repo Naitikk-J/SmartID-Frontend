@@ -113,7 +113,14 @@ export default function AttendancePage() {
     const [projectorQrExpiresAt, setProjectorQrExpiresAt] = useState<string | null>(null)
     const [projectorCountdown, setProjectorCountdown] = useState(0)
     const [isProjectorFullscreen, setIsProjectorFullscreen] = useState(false)
+    const [, setTimerTick] = useState(0)
     const prevMarkedCountRef = useRef(0)
+
+    // Tick every second so session countdown timers update live
+    useEffect(() => {
+        const interval = setInterval(() => setTimerTick((t) => t + 1), 1000)
+        return () => clearInterval(interval)
+    }, [])
     const projectorContainerRef = useRef<HTMLDivElement | null>(null)
     const projectorRefreshingRef = useRef(false)
 

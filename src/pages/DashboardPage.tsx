@@ -45,6 +45,12 @@ export default function DashboardPage() {
         refetchInterval: 30000,
     })
 
+    const { data: activeSessions } = useQuery({
+        queryKey: ['dashboard-active-sessions'],
+        queryFn: () => api.get('/attendance/sessions', { params: { status: 'OPEN' } }).then((r) => r.data.data.sessions),
+        refetchInterval: 30000,
+    })
+
     const selectedEventName = useMemo(
         () => events?.find((event) => event.id === selectedEventId)?.name || 'Event Mess',
         [events, selectedEventId],
@@ -139,7 +145,7 @@ export default function DashboardPage() {
                 />
                 <StatCard
                     title="Active Sessions"
-                    value="12"
+                    value={activeSessions?.length ?? '—'}
                     icon={ClipboardCheck}
                     color="text-primary"
                     subtitle="Attendance in progress"
