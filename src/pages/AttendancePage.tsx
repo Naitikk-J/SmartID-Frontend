@@ -799,7 +799,12 @@ export default function AttendancePage() {
                                                     <p className="text-sm font-semibold">{session.subject?.code} — {session.subject?.name}</p>
                                                     <p className="text-xs text-text-secondary">{session.className || 'Default class'} · {session.qrMode} · {session.status}</p>
                                                 </div>
-                                                <p className="text-xs text-text-secondary">Started: {session.startedAt ? new Date(session.startedAt).toLocaleString() : 'N/A'}</p>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-text-secondary">Started: {session.startedAt ? new Date(session.startedAt).toLocaleString() : 'N/A'}</p>
+                                                    <p className="text-xs font-semibold text-warning mt-1 flex items-center justify-end gap-1">
+                                                        <Clock size={12} /> {getSessionRemainingTime(session)}
+                                                    </p>
+                                                </div>
                                             </div>
                                             {renderQrInfo(session)}
                                             {session.status === 'OPEN' && (
@@ -830,6 +835,13 @@ export default function AttendancePage() {
                                                         onClick={() => openProjectorView(session)}
                                                     >
                                                         <Maximize2 size={14} /> Projector
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-xl bg-bg-subtle px-3 py-2 text-xs font-semibold text-text-primary border border-border flex items-center gap-1 hover:bg-bg-hover"
+                                                        onClick={() => handleDownloadCsv(session.id)}
+                                                    >
+                                                        <Download size={14} /> Report
                                                     </button>
                                                     <button
                                                         type="button"
@@ -878,8 +890,54 @@ export default function AttendancePage() {
                         </div>
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === 'live' ? (
                 renderLiveConsole()
+            ) : (
+                <div className="bg-bg-card rounded-xl border border-border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Session History</h3>
+                    {isLoadingHistory ? (
+                        <LoadingSpinner />
+                    ) : !historySessions?.length ? (
+                        <p className="text-sm text-text-secondary">No closed sessions found.</p>
+                    ) : (
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-border">
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Date</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Subject</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Class</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Present</th>
+                                    <th className="text-left text-xs text-text-secondary px-4 py-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {historySessions.map((session) => (
+                                    <tr key={session.id} className="border-b border-border/50 hover:bg-bg-hover">
+                                        <td className="px-4 py-3 text-sm">
+                                            {session.startedAt ? new Date(session.startedAt).toLocaleString() : 'N/A'}
+                                            {session.status === 'OPEN' && <span className="ml-2 inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">Live</span>}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <p className="text-sm font-medium">{session.subject?.code}</p>
+                                            <p className="text-xs text-text-secondary">{session.subject?.name}</p>
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-text-secondary">{session.className || 'Default'}</td>
+                                        <td className="px-4 py-3 text-sm font-bold text-primary">{session._count?.records || 0}</td>
+                                        <td className="px-4 py-3">
+                                            <button
+                                                onClick={() => handleDownloadCsv(session.id)}
+                                                className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition"
+                                                title="Download CSV Report"
+                                            >
+                                                <Download size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             )}
 
             {projectorSessionId && (
