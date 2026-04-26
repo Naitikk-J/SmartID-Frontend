@@ -10,6 +10,7 @@ export interface ScanEvent {
     result: string
     badge: string
     gateId?: number
+    gateName?: string | null
     direction?: 'ENTRY' | 'EXIT' | null
 }
 

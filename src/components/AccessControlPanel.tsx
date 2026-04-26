@@ -37,7 +37,7 @@ export default function AccessControlPanel() {
 
     const [geoForm, setGeoForm] = useState<GeofencePayload>(emptyGeofenceForm)
 
-    const { data: gates = [], isLoading: isLoadingGates } = useQuery({
+    const { data: gates = [] } = useQuery({
         queryKey: ['access-gates'],
         queryFn: async () => {
             const response = await api.get('/access/gates')

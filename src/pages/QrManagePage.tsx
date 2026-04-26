@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import api from '../api/axios'
 import {
     QrCode, RefreshCw, Maximize2, Timer, MapPin, Copy, Save,
-    Zap, Lock, Settings2, Radio, Download, Plus, Pencil, Check, X
+    Zap, Lock, Settings2, Radio, Plus, Pencil, Check, X
 } from 'lucide-react'
 
 type Gate = { id: string; name: string; hasGeofence?: boolean }

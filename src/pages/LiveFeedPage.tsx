@@ -152,7 +152,7 @@ export default function LiveFeedPage() {
                                                 {event.scanType?.replace(/_/g, ' ')}
                                             </p>
                                             <p className="text-[9px] font-bold text-text-secondary uppercase">
-                                                Gate {event.gateId?.toString().slice(-1) || '1'}
+                                                {event.gateName || 'Main Gate'}
                                             </p>
                                         </td>
                                         <td className="px-6 py-4 text-center">

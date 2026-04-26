@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import {
     Search, Download, Filter, ChevronLeft, ChevronRight,
-    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield, AlertTriangle, Ticket, QrCode, RefreshCw, Maximize2
+    Users, LogIn, LogOut, Camera, Scan, Eye, Activity, BarChart3, Shield, AlertTriangle, Ticket
 } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import FaceRegistration from '../components/FaceRegistration'
