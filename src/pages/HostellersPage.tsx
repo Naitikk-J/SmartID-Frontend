@@ -12,6 +12,7 @@ import FaceLiveDetectionPanel from '../components/FaceLiveDetectionPanel'
 import AccessControlPanel from '../components/AccessControlPanel'
 import PinkSlipManager from '../components/PinkSlipManager'
 import CurfewManager from '../components/CurfewManager' // Import the new component
+import HostellerImportPanel from '../components/HostellerImportPanel'
 import { QRCodeSVG } from 'qrcode.react'
 
 type EventProjectItem = {
@@ -599,6 +600,9 @@ export default function HostellersPage() {
                     )}
                 </section>
             </div>
+
+            {/* 1st Year Hosteller Setup Panel */}
+            <HostellerImportPanel />
 
             {/* ═══ Face Recognition Section ═══ */}
             <div className="space-y-4">
