@@ -6,6 +6,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     Students: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     Hostellers: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     'QR Projector': ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN', 'SECURITY_GUARD'],
+    'QR Manage': ['SUPER_ADMIN', 'HOD', 'FACULTY', 'WARDEN', 'SECURITY_GUARD'],
     Attendance: ['SUPER_ADMIN', 'HOD', 'FACULTY'],
     'Exit Rules': ['SUPER_ADMIN', 'HOD'],
     Events: ['SUPER_ADMIN', 'HOD', 'FACULTY'],

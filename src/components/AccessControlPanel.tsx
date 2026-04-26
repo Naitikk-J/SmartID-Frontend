@@ -47,7 +47,8 @@ export default function AccessControlPanel() {
 
     useEffect(() => {
         if (!selectedGateId && gates.length > 0) {
-            setSelectedGateId(gates[0].id)
+            const hostelGate = gates.find(g => g.name.toLowerCase().includes('hostel'))
+            setSelectedGateId(hostelGate ? hostelGate.id : gates[0].id)
         }
     }, [gates, selectedGateId])
 
@@ -209,17 +210,9 @@ export default function AccessControlPanel() {
                     </button>
                 </div>
 
-                <label className="block text-xs text-text-secondary">Gate</label>
-                <select
-                    value={selectedGateId}
-                    onChange={(e) => setSelectedGateId(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-text-primary"
-                    disabled={isLoadingGates}
-                >
-                    {gates.map((gate) => (
-                        <option key={gate.id} value={gate.id}>{gate.name}</option>
-                    ))}
-                </select>
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-text-primary">
+                    <span className="font-bold">{selectedGate?.name || 'Loading Gate...'}</span>
+                </div>
 
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                     {isQrLoading || !liveQr?.qr_token ? (
@@ -240,11 +233,7 @@ export default function AccessControlPanel() {
                     )}
                 </div>
 
-                {selectedGate && (
-                    <p className="text-xs text-text-secondary">
-                        Active gate: <span className="text-text-primary font-semibold">{selectedGate.name}</span>
-                    </p>
-                )}
+
             </section>
 
             <section className="xl:col-span-1 rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
