@@ -23,6 +23,8 @@ export default function QrManagePage() {
     const [ttl, setTtl] = useState(20)
     const [countdown, setCountdown] = useState(0)
     const [staticToken, setStaticToken] = useState('')
+    const [validInCampus, setValidInCampus] = useState(true)
+    const [validInHostel, setValidInHostel] = useState(true)
     const [newGateName, setNewGateName] = useState('')
     const [showCreate, setShowCreate] = useState(false)
     const [renameId, setRenameId] = useState<string|null>(null)
@@ -55,13 +57,15 @@ export default function QrManagePage() {
         if (gateConfig && isGate) {
             setQrMode(gateConfig.qrMode || 'DYNAMIC')
             setTtl(gateConfig.qrTtlSeconds || 20)
+            setValidInCampus(gateConfig.validInCampus ?? true)
+            setValidInHostel(gateConfig.validInHostel ?? true)
             setConfigDirty(false)
         }
     }, [gateConfig, isGate])
 
     // Save per-gate config
     const saveConfigMut = useMutation({
-        mutationFn: async () => { await api.put(`/access/gates/${gateId}/qr-config`, { qrMode, qrTtlSeconds: ttl }) },
+        mutationFn: async () => { await api.put(`/access/gates/${gateId}/qr-config`, { qrMode, qrTtlSeconds: ttl, validInCampus, validInHostel }) },
         onSuccess: () => { toast.success('QR config saved — all pages will use this'); qc.invalidateQueries({ queryKey: ['gate-qr-cfg'] }); setConfigDirty(false) },
         onError: (e:any) => toast.error(e.response?.data?.error || 'Save failed')
     })
@@ -173,6 +177,36 @@ export default function QrManagePage() {
                         </div>
                     )}
 
+                    {/* Gate Scope Toggles */}
+                    {isGate && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-text-primary flex items-center gap-2"><MapPin size={16} className="text-primary"/> Valid In</h3>
+                            <div className="flex flex-col gap-3">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={`w-10 h-6 rounded-full p-1 transition-all flex items-center ${validInCampus ? 'bg-success' : 'bg-white/10'}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all ${validInCampus ? 'translate-x-4' : 'translate-x-0'}`}/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-text-primary">Campus Entry/Exit</p>
+                                        <p className="text-[10px] text-text-secondary">Allow main campus access</p>
+                                    </div>
+                                    <input type="checkbox" className="hidden" checked={validInCampus} onChange={e=>{setValidInCampus(e.target.checked);setConfigDirty(true)}}/>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={`w-10 h-6 rounded-full p-1 transition-all flex items-center ${validInHostel ? 'bg-success' : 'bg-white/10'}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all ${validInHostel ? 'translate-x-4' : 'translate-x-0'}`}/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-text-primary">Hostel</p>
+                                        <p className="text-[10px] text-text-secondary">Allow hostel access</p>
+                                    </div>
+                                    <input type="checkbox" className="hidden" checked={validInHostel} onChange={e=>{setValidInHostel(e.target.checked);setConfigDirty(true)}}/>
+                                </label>
+                            </div>
+                        </div>
+                    )}
+
+
                     {/* SAVE CONFIG — the key feature */}
                     {isGate && gateId && (
                         <button onClick={()=>saveConfigMut.mutate()} disabled={saveConfigMut.isPending || !configDirty}
@@ -207,7 +241,9 @@ export default function QrManagePage() {
                         ) : token ? (
                             <div className="flex flex-col items-center gap-5 relative z-10">
                                 <div className="text-center"><p className="text-lg font-black text-text-primary">{label}</p><p className="text-xs text-text-secondary mt-0.5">{isDyn?`Auto-refreshes every ${ttl}s`:'Static — does not expire'}</p></div>
-                                <div className="bg-white p-5 rounded-2xl shadow-2xl shadow-black/30 hover:scale-[1.01] transition-all"><QRCodeSVG value={token} size={280}/></div>
+                                <div className="p-4 bg-white rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.15)] hover:scale-[1.02] transition-all duration-500 ease-out">
+                                    <QRCodeSVG value={token} size={250} level="H" includeMargin={false} />
+                                </div>
                                 <p className="text-[10px] text-text-secondary font-mono break-all max-w-sm text-center">{token.length>60?token.slice(0,60)+'…':token}</p>
                             </div>
                         ) : (

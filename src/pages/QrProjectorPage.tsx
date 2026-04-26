@@ -177,7 +177,7 @@ export default function QrProjectorPage() {
                     <div>
                         <h3 className="font-bold text-text-primary leading-tight text-lg flex items-center gap-2">
                             <QrCode size={20} className="text-primary" />
-                            Event Dynamic QR Projector
+                            Live QR Projector
                         </h3>
                         <p className="text-xs text-text-secondary mt-0.5">Project live event or gate QR on a large screen for check-in.</p>
                     </div>
@@ -197,7 +197,7 @@ export default function QrProjectorPage() {
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-text-primary"
                         disabled={isLoadingEventProjectList && isLoadingProjectGates}
                     >
-                        <option value={LIVE_GATE_PROJECT_OPTION}>Live Gate QR</option>
+                        <option value={LIVE_GATE_PROJECT_OPTION}>Gate QR</option>
                         {selectableProjectEvents.length === 0 && <option value="">No events found</option>}
                         {selectableProjectEvents.map((event) => (
                             <option key={event.id} value={event.id}>
@@ -251,8 +251,8 @@ export default function QrProjectorPage() {
                         <p className="text-sm text-text-secondary">Generating dynamic QR...</p>
                     ) : projectorQrData?.token ? (
                         <div className="w-full flex flex-col items-center gap-4">
-                            <div className="bg-white p-4 rounded-2xl shadow-2xl shadow-black/30">
-                                <QRCodeSVG value={projectorQrData.token} size={320} />
+                            <div className="p-4 bg-white rounded-xl shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-all duration-500 ease-in-out">
+                                <QRCodeSVG value={projectorQrData.token} size={300} level="H" includeMargin={false} />
                             </div>
                             <div className="flex items-center gap-4 text-xs text-text-secondary">
                                 <span className="uppercase tracking-widest font-black">{isLiveGateProjector ? 'LIVE_GATE' : projectQrType} mode</span>

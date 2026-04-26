@@ -238,8 +238,8 @@ export default function AccessControlPanel() {
                         <p className="text-sm text-text-secondary">Generating dynamic QR...</p>
                     ) : (
                         <div className="space-y-3">
-                            <div className="mx-auto w-fit bg-white p-3 rounded-xl">
-                                <QRCodeSVG value={liveQr.qr_token} size={176} />
+                            <div className="p-3 bg-white rounded-xl mx-auto w-fit">
+                                <QRCodeSVG value={liveQr.qr_token} size={150} level="H" includeMargin={false} />
                             </div>
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-text-secondary">TTL</p>
