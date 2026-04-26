@@ -60,14 +60,28 @@ export default function AccessControlPanel() {
     const hasCoordinates = Number.isFinite(geoForm.center_lat) && Number.isFinite(geoForm.center_lng)
     const canSaveGeofence = Boolean(selectedGateId) && hasCoordinates
 
+    // Fetch per-gate QR config (set from QR Manage page)
+    const { data: gateQrConfig } = useQuery({
+        queryKey: ['gate-qr-cfg', selectedGateId],
+        enabled: Boolean(selectedGateId),
+        queryFn: async () => {
+            const response = await api.get(`/access/gates/${selectedGateId}/qr-config`)
+            return response.data?.data as { qrMode: string; qrTtlSeconds: number } | undefined
+        },
+    })
+
+    const gateQrMode = gateQrConfig?.qrMode || 'DYNAMIC'
+    const gateTtl = gateQrConfig?.qrTtlSeconds || 20
+    const isDynamicGate = gateQrMode === 'DYNAMIC'
+
     const {
         data: liveQr,
         isLoading: isQrLoading,
         refetch: refetchQr,
     } = useQuery({
         queryKey: ['access-live-qr', selectedGateId],
-        enabled: Boolean(selectedGateId),
-        refetchInterval: 20000,
+        enabled: Boolean(selectedGateId) && isDynamicGate,
+        refetchInterval: isDynamicGate ? gateTtl * 1000 : false,
         queryFn: async () => {
             const response = await api.get('/qr/generate', {
                 params: { gate_id: selectedGateId },
@@ -215,7 +229,12 @@ export default function AccessControlPanel() {
                 </div>
 
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    {isQrLoading || !liveQr?.qr_token ? (
+                    {!isDynamicGate ? (
+                        <div className="space-y-3 text-center py-4">
+                            <p className="text-sm font-bold text-warning">Static QR Mode</p>
+                            <p className="text-xs text-text-secondary">This gate is set to static QR from QR Manage. Dynamic rotation is paused.</p>
+                        </div>
+                    ) : isQrLoading || !liveQr?.qr_token ? (
                         <p className="text-sm text-text-secondary">Generating dynamic QR...</p>
                     ) : (
                         <div className="space-y-3">
@@ -228,7 +247,7 @@ export default function AccessControlPanel() {
                                     {countdown}s
                                 </p>
                             </div>
-                            <p className="text-xs text-text-secondary">Auto-refresh every 20s. Share only with students present at this gate.</p>
+                            <p className="text-xs text-text-secondary">Auto-refresh every {gateTtl}s (configured via QR Manage)</p>
                         </div>
                     )}
                 </div>

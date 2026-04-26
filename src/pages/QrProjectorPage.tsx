@@ -54,6 +54,18 @@ export default function QrProjectorPage() {
 
     const isLiveGateProjector = projectEventId === LIVE_GATE_PROJECT_OPTION
 
+    // Fetch per-gate QR config from QR Manage
+    const { data: projGateConfig } = useQuery({
+        queryKey: ['gate-qr-cfg', projectGateId],
+        enabled: isLiveGateProjector && Boolean(projectGateId),
+        queryFn: async () => {
+            const r = await api.get(`/access/gates/${projectGateId}/qr-config`)
+            return r.data?.data as { qrMode: string; qrTtlSeconds: number } | undefined
+        },
+    })
+    const projGateTtl = projGateConfig?.qrTtlSeconds || 20
+    const projGateIsDynamic = (projGateConfig?.qrMode || 'DYNAMIC') === 'DYNAMIC'
+
     useEffect(() => {
         if (!projectGateId && projectGates.length > 0) {
             setProjectGateId(projectGates[0].id)
@@ -85,8 +97,8 @@ export default function QrProjectorPage() {
         isLoading: isLoadingProjectorQr,
     } = useQuery({
         queryKey: ['qrProjectorData', projectEventId, projectQrType, projectGateId],
-        enabled: isLiveGateProjector ? Boolean(projectGateId) : Boolean(projectEventId),
-        refetchInterval: projectQrType === 'STAY' ? 20000 : (isLiveGateProjector ? 20000 : false),
+        enabled: isLiveGateProjector ? (Boolean(projectGateId) && projGateIsDynamic) : Boolean(projectEventId),
+        refetchInterval: projectQrType === 'STAY' ? 20000 : (isLiveGateProjector ? projGateTtl * 1000 : false),
         queryFn: async () => {
             if (isLiveGateProjector) {
                 const response = await api.get('/qr/generate', {
