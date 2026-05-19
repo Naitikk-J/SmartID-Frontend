@@ -4,10 +4,41 @@
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; img-src * data: blob:; connect-src * ws: wss:; font-src 'self' data: https://fonts.gstatic.com; frame-src *;">
+        content="default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src * data: blob:; connect-src * ws: wss:; font-src 'self' data: https://fonts.gstatic.com; frame-src *;">
     <link rel="icon" type="image/png" href="" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FAFAF9" media="(prefers-color-scheme: light)" />
     <title>Admin Smart ID</title>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         FOUC guard: read the persisted theme preference and apply
+         the right CSS class to <html> BEFORE the first paint, so
+         the user never sees a light flash before the dark theme
+         loads (or vice versa).
+         ═══════════════════════════════════════════════════════════ -->
+    <script>
+        (function () {
+            try {
+                var stored = JSON.parse(localStorage.getItem('mits-theme') || 'null');
+                var mode = stored && stored.state && stored.state.mode ? stored.state.mode : 'system';
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
+                if (resolved === 'dark') document.documentElement.classList.add('dark');
+                document.documentElement.setAttribute('data-theme', resolved);
+                document.documentElement.style.colorScheme = resolved;
+            } catch (_) {
+                /* localStorage blocked — fall back to default styles. */
+            }
+        })();
+    </script>
+
+    <!-- Inter is what Linear/Stripe/GitHub use; crisp + classy. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" />
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 

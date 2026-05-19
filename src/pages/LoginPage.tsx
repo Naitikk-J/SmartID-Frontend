@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useThemeStore } from '../store/themeStore'
+import ThemeToggle from '../components/ThemeToggle'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, Lock, Zap, Globe2 } from 'lucide-react'
 
 declare global {
     interface Window {
@@ -13,11 +15,13 @@ declare global {
 
 export default function LoginPage() {
     const setAuth = useAuthStore((s) => s.setAuth)
+    const resolved = useThemeStore((s) => s.resolved)
     const navigate = useNavigate()
     const studentPortalUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'smartid://login'
     const studentPortalFallbackUrl = import.meta.env.VITE_STUDENT_PORTAL_FALLBACK_URL as string | undefined
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
+    // ── Helpers (unchanged from previous version) ───────────────
     const decodeGoogleEmailFromIdToken = (idToken: string): string | null => {
         try {
             const parts = idToken.split('.')
@@ -26,19 +30,15 @@ export default function LoginPage() {
             const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
             const payload = JSON.parse(atob(padded))
             return typeof payload?.email === 'string' ? payload.email.toLowerCase() : null
-        } catch {
-            return null
-        }
+        } catch { return null }
     }
 
     const redirectToStudentSide = () => {
-        // On desktop browsers, custom app scheme may not be registered.
         if (studentPortalUrl.startsWith('smartid://')) {
             const start = Date.now()
             window.location.href = studentPortalUrl
             window.setTimeout(() => {
-                const elapsed = Date.now() - start
-                if (elapsed < 1800) {
+                if (Date.now() - start < 1800) {
                     if (studentPortalFallbackUrl) {
                         window.location.href = studentPortalFallbackUrl
                         return
@@ -48,7 +48,6 @@ export default function LoginPage() {
             }, 1200)
             return
         }
-
         window.location.href = studentPortalUrl
     }
 
@@ -56,25 +55,21 @@ export default function LoginPage() {
         const authData = authPayload?.data || authPayload
         const role = authData?.user?.role
         const emailValue = String(authData?.user?.email || '').toLowerCase()
-
         if (role === 'STUDENT' || emailValue.endsWith('@mitsgwl.ac.in')) {
-            toast('Student account detected. Redirecting to student side...')
+            toast('Student account detected. Redirecting to student side…')
             redirectToStudentSide()
             return
         }
-
         setAuth(authData)
         toast.success('Welcome back!')
         navigate('/')
     }
 
-
-    // Google Identity Services JS API
+    // ── Google Identity Services bootstrap ──────────────────────
     const googleBtnRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
         if (!googleClientId) return
-
-        // @ts-ignore
+        // @ts-ignore - GSI is loaded via the inline <script> in index.html
         if (window.google && googleBtnRef.current) {
             if (!window.__MITS_GSI_INITIALIZED__) {
                 // @ts-ignore
@@ -86,14 +81,12 @@ export default function LoginPage() {
                             toast.error('Google login credential not received. Check authorized origin/client id.')
                             return
                         }
-
                         const tokenEmail = decodeGoogleEmailFromIdToken(idToken)
                         if (tokenEmail?.endsWith('@mitsgwl.ac.in')) {
-                            toast('Student account detected. Redirecting to student side...')
+                            toast('Student account detected. Redirecting to student side…')
                             redirectToStudentSide()
                             return
                         }
-
                         if (
                             tokenEmail
                             && tokenEmail !== 'naitikjainjbp@gmail.com'
@@ -102,7 +95,6 @@ export default function LoginPage() {
                             toast.error('Use only @mitsgwalior.in admin account (or super admin) on this portal.')
                             return
                         }
-
                         try {
                             const { data: resp } = await api.post('/auth/google', { idToken })
                             handleAuthSuccess(resp.data)
@@ -118,78 +110,139 @@ export default function LoginPage() {
             googleBtnRef.current.innerHTML = ''
             // @ts-ignore
             window.google.accounts.id.renderButton(googleBtnRef.current, {
-                theme: 'filled_black',
+                theme: resolved === 'dark' ? 'filled_black' : 'outline',
                 size: 'large',
                 shape: 'pill',
                 text: 'continue_with',
-                width: '100%',
+                width: '320',
             })
         }
-    }, [googleClientId])
+        // Re-render the GSI button when the theme changes so the
+        // light/dark variants stay in sync.
+    }, [googleClientId, resolved])
 
     return (
-        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg-dark">
-            {/* Background Image with Overlay */}
-            <div
-                className="absolute inset-0 z-0 scale-105 animate-slow-zoom"
-                style={{
-                    backgroundImage: 'url("/MITS.png")',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                }}
-            />
-            <div className="absolute inset-0 bg-bg-dark/60 backdrop-blur-[2px] z-0" />
+        <div className="min-h-screen w-full bg-bg-dark text-text-primary overflow-hidden relative">
+            {/* Floating theme toggle — visible even before login. */}
+            <div className="absolute top-5 right-5 z-30">
+                <ThemeToggle />
+            </div>
 
-            {/* Visual Decoration */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse z-1" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-pulse z-1" style={{ animationDelay: '2s' }} />
+            <div className="grid lg:grid-cols-2 min-h-screen">
+                {/* ── Hero panel (hidden on small screens) ─────── */}
+                <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden">
+                    {/* Layered ambient gradients — calm, not loud. */}
+                    <div className="absolute inset-0 -z-10">
+                        <div className="absolute -top-32 -left-32 w-[60%] h-[60%] rounded-full bg-primary/15 blur-[120px]" />
+                        <div className="absolute -bottom-32 -right-32 w-[55%] h-[55%] rounded-full bg-accent/12 blur-[140px]" />
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.08),transparent_45%)]" />
+                    </div>
 
-            <div className="w-full max-w-md px-6 relative z-10 animate-fade-in-up">
-                <div className="glass-card p-10 shadow-2xl relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
-
-                    {/* Logo Section */}
-                    <div className="text-center mb-10">
-                        <div className="relative inline-block">
-                            <div className="w-20 h-20 bg-gradient-to-br from-primary to-primary-light rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-xl shadow-primary/20 transform group-hover:rotate-6 transition-transform duration-500">
-                                <ShieldCheck size={40} className="text-white" strokeWidth={2.5} />
-                            </div>
-                            <div className="absolute -inset-2 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
+                            <ShieldCheck className="text-white" size={22} strokeWidth={2.5} />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter text-text-primary mb-2">
-                            SMART-ID <span className="text-primary font-medium tracking-normal text-lg">ADMIN</span>
+                        <div className="leading-tight">
+                            <p className="text-sm font-bold tracking-tight text-text-primary">Smart ID</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted">Admin Console</p>
+                        </div>
+                    </div>
+
+                    <div className="max-w-md space-y-6">
+                        <div>
+                            <span className="chip">
+                                <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                                Production
+                            </span>
+                        </div>
+                        <h1 className="text-4xl xl:text-5xl font-bold tracking-tight leading-[1.05]">
+                            Operate a smarter, safer campus.
                         </h1>
-                        <p className="text-text-secondary font-bold text-[10px] uppercase tracking-[0.2em] opacity-60">
-                            Secure Infrastructure Access
+                        <p className="text-text-secondary text-[15px] leading-relaxed">
+                            Real-time scans, hostel curfews, geofenced gates, and full audit
+                            trails — all from one console designed for the people who run
+                            campus operations.
+                        </p>
+
+                        <div className="grid grid-cols-3 gap-3 pt-2">
+                            {[
+                                { icon: Zap, label: 'Real-time' },
+                                { icon: Lock, label: 'Audited' },
+                                { icon: Globe2, label: 'Multi-site' },
+                            ].map(({ icon: Icon, label }) => (
+                                <div
+                                    key={label}
+                                    className="rounded-xl border border-border bg-bg-card/60 backdrop-blur p-3 flex flex-col items-start gap-2"
+                                >
+                                    <Icon size={16} className="text-primary" />
+                                    <span className="text-xs font-semibold text-text-secondary">{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-text-muted">
+                        Madhav Institute of Technology &amp; Science
+                    </p>
+                </aside>
+
+                {/* ── Auth panel ──────────────────────────────── */}
+                <main className="relative flex items-center justify-center p-6 sm:p-12">
+                    <div className="absolute inset-0 -z-10 lg:hidden">
+                        <div className="absolute -top-24 -left-24 w-[60%] h-[60%] rounded-full bg-primary/15 blur-[100px]" />
+                        <div className="absolute -bottom-24 -right-24 w-[55%] h-[55%] rounded-full bg-accent/12 blur-[120px]" />
+                    </div>
+
+                    <div className="w-full max-w-sm animate-fade-in-up">
+                        <div className="lg:hidden mb-8 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm shadow-primary/30">
+                                <ShieldCheck className="text-white" size={18} strokeWidth={2.5} />
+                            </div>
+                            <div className="leading-tight">
+                                <p className="text-sm font-bold">Smart ID</p>
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Admin Console</p>
+                            </div>
+                        </div>
+
+                        <h2 className="text-2xl font-bold tracking-tight">Sign in</h2>
+                        <p className="text-text-secondary text-sm mt-1.5">
+                            Use your <span className="font-medium text-text-primary">@mitsgwalior.in</span> Google
+                            account to access the admin console.
+                        </p>
+
+                        <div className="mt-8 glass-card p-6 rounded-2xl">
+                            <div className="flex flex-col items-center gap-4">
+                                {googleClientId ? (
+                                    <>
+                                        <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" />
+                                        <div className="flex items-center gap-2 w-full">
+                                            <div className="h-px flex-1 bg-border" />
+                                            <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                                                Secured by Google
+                                            </span>
+                                            <div className="h-px flex-1 bg-border" />
+                                        </div>
+                                        <p className="text-[11px] text-text-muted text-center">
+                                            By signing in you agree to the institute&rsquo;s
+                                            acceptable-use and audit-logging policy.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="text-center py-4">
+                                        <p className="text-sm font-medium text-warning">Google sign-in unavailable</p>
+                                        <p className="text-xs text-text-secondary mt-1">
+                                            Set <span className="font-mono">VITE_GOOGLE_CLIENT_ID</span> to enable login.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <p className="text-center mt-8 text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                            © {new Date().getFullYear()} MITS Gwalior
                         </p>
                     </div>
-
-                    <div className="flex flex-col items-center">
-                        {googleClientId ? (
-                            <>
-                                <div ref={googleBtnRef} style={{ width: '100%', maxWidth: 320 }} />
-                                <p className="text-[10px] text-text-secondary mt-6 text-center opacity-60 max-w-xs">
-                                    Sign in with your @mitsgwalior.in or admin Google account
-                                </p>
-                            </>
-                        ) : (
-                            <p className="text-xs text-text-secondary text-center">
-                                Google login is unavailable. Set `VITE_GOOGLE_CLIENT_ID` in environment.
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="mt-10 pt-8 border-t border-white/5 text-center">
-                        <p className="text-[9px] font-black text-text-secondary uppercase tracking-[0.3em] opacity-40">
-                            Madhav Institute of Technology & Science
-                        </p>
-                    </div>
-                </div>
-
-                {/* External Link or Help */}
-                <p className="text-center mt-8 text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60">
-                    Proprietary Security Infrastructure &copy; {new Date().getFullYear()}
-                </p>
+                </main>
             </div>
         </div>
     )

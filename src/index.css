@@ -1,201 +1,357 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   MITS Smart ID — Premium Design System 2.0 (Glassmorphism)
+   MITS Smart ID — Design System 3.0
+   ───────────────────────────────────────────────────────────────
+   Goals:
+     • Calm, classy, Linear/Stripe-grade aesthetic
+     • First-class light + dark themes via class strategy
+     • Single source of truth for color, spacing, motion
+     • All legacy utility names (bg-bg-dark, glass-card, etc.) still
+       resolve, so existing pages inherit the new look for free.
    ═══════════════════════════════════════════════════════════════ */
 
-@theme {
-    --color-primary: #4F46E5;
-    /* Indigo 600 */
+/* Class-strategy dark mode. `dark:` variant matches when an
+   ancestor (or the element itself) carries the `dark` class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Theme tokens (light) ───────────────────────────────────── */
+:root {
+    /* Page + surfaces */
+    --color-bg-dark: #FAFAF9;          /* page background (kept name for compatibility) */
+    --color-bg-card: #FFFFFF;          /* primary surface */
+    --color-bg-subtle: #F4F4F5;        /* secondary surface, hover background */
+    --color-bg-hover: #E4E4E7;
+    --color-bg-glass: rgba(255, 255, 255, 0.72);
+    --color-bg-overlay: rgba(9, 9, 11, 0.45);
+
+    /* Text */
+    --color-text-primary: #18181B;
+    --color-text-secondary: #52525B;
+    --color-text-muted: #71717A;
+    --color-text-inverse: #FAFAFA;
+
+    /* Lines */
+    --color-border: rgba(24, 24, 27, 0.08);
+    --color-border-strong: rgba(24, 24, 27, 0.14);
+
+    /* Brand */
+    --color-primary: #4F46E5;          /* Indigo 600 — anchor */
+    --color-primary-hover: #4338CA;
     --color-primary-light: #6366F1;
-    /* Indigo 500 */
-    --color-accent: #818CF8;
-    /* Indigo 400 */
-    --color-success: #10B981;
-    /* Emerald 500 */
-    --color-danger: #F43F5E;
-    /* Rose 500 */
-    --color-warning: #F59E0B;
-    /* Amber 500 */
-    --color-neutral: #64748B;
-    /* Slate 500 */
+    --color-accent: #7C3AED;           /* Violet 600 */
+    --color-accent-light: #8B5CF6;
 
-    --color-bg-dark: #020617;
-    /* Slate 950 */
-    --color-bg-card: #0F172A;
-    /* Slate 900 */
-    --color-bg-glass: rgba(15, 23, 42, 0.7);
-    --color-bg-hover: #1E293B;
-    /* Slate 800 */
+    /* Semantic */
+    --color-success: #059669;
+    --color-success-soft: rgba(5, 150, 105, 0.12);
+    --color-danger: #DC2626;
+    --color-danger-soft: rgba(220, 38, 38, 0.10);
+    --color-warning: #D97706;
+    --color-warning-soft: rgba(217, 119, 6, 0.12);
+    --color-neutral: #71717A;
+    --color-neutral-soft: rgba(113, 113, 122, 0.10);
 
-    --color-text-primary: #F8FAFC;
-    /* Slate 50 */
-    --color-text-secondary: #94A3B8;
-    /* Slate 400 */
-    --color-border: rgba(51, 65, 85, 0.5);
-    /* Slate 700 with alpha */
-
-    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    /* Effects */
+    --shadow-glass:
+        0 1px 2px rgba(24, 24, 27, 0.06),
+        0 8px 24px -8px rgba(24, 24, 27, 0.08);
+    --shadow-elevated:
+        0 4px 12px -2px rgba(24, 24, 27, 0.08),
+        0 24px 48px -12px rgba(24, 24, 27, 0.10);
+    --ring-focus: 0 0 0 3px rgba(79, 70, 229, 0.18);
 }
 
+/* ── Theme tokens (dark) ────────────────────────────────────── */
+.dark {
+    --color-bg-dark: #09090B;          /* page bg */
+    --color-bg-card: #18181B;          /* surface */
+    --color-bg-subtle: #1F1F23;
+    --color-bg-hover: #27272A;
+    --color-bg-glass: rgba(24, 24, 27, 0.72);
+    --color-bg-overlay: rgba(0, 0, 0, 0.70);
+
+    --color-text-primary: #FAFAFA;
+    --color-text-secondary: #A1A1AA;
+    --color-text-muted: #71717A;
+    --color-text-inverse: #18181B;
+
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-strong: rgba(255, 255, 255, 0.14);
+
+    --color-primary: #6366F1;
+    --color-primary-hover: #818CF8;
+    --color-primary-light: #818CF8;
+    --color-accent: #A78BFA;
+    --color-accent-light: #C4B5FD;
+
+    --color-success: #34D399;
+    --color-success-soft: rgba(52, 211, 153, 0.12);
+    --color-danger: #F87171;
+    --color-danger-soft: rgba(248, 113, 113, 0.12);
+    --color-warning: #FBBF24;
+    --color-warning-soft: rgba(251, 191, 36, 0.12);
+    --color-neutral: #A1A1AA;
+    --color-neutral-soft: rgba(161, 161, 170, 0.10);
+
+    --shadow-glass:
+        0 1px 2px rgba(0, 0, 0, 0.4),
+        0 8px 32px -4px rgba(0, 0, 0, 0.45);
+    --shadow-elevated:
+        0 8px 24px -4px rgba(0, 0, 0, 0.50),
+        0 24px 48px -12px rgba(0, 0, 0, 0.55);
+    --ring-focus: 0 0 0 3px rgba(129, 140, 248, 0.30);
+}
+
+/* ── Bind tokens into Tailwind (inline = resolves at runtime) ── */
+@theme inline {
+    --color-bg-dark: var(--color-bg-dark);
+    --color-bg-card: var(--color-bg-card);
+    --color-bg-subtle: var(--color-bg-subtle);
+    --color-bg-hover: var(--color-bg-hover);
+    --color-bg-glass: var(--color-bg-glass);
+    --color-bg-overlay: var(--color-bg-overlay);
+
+    --color-text-primary: var(--color-text-primary);
+    --color-text-secondary: var(--color-text-secondary);
+    --color-text-muted: var(--color-text-muted);
+    --color-text-inverse: var(--color-text-inverse);
+
+    --color-border: var(--color-border);
+    --color-border-strong: var(--color-border-strong);
+
+    --color-primary: var(--color-primary);
+    --color-primary-hover: var(--color-primary-hover);
+    --color-primary-light: var(--color-primary-light);
+    --color-accent: var(--color-accent);
+    --color-accent-light: var(--color-accent-light);
+
+    --color-success: var(--color-success);
+    --color-danger: var(--color-danger);
+    --color-warning: var(--color-warning);
+    --color-neutral: var(--color-neutral);
+
+    --shadow-glass: var(--shadow-glass);
+    --shadow-elevated: var(--shadow-elevated);
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
 @layer base {
+    html {
+        font-family:
+            'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+            'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        /* Inter benefits hugely from these in modern browsers. */
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+        font-optical-sizing: auto;
+        -webkit-tap-highlight-color: transparent;
+    }
+
     body {
         @apply antialiased text-text-primary bg-bg-dark;
-        font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+        background-image:
+            radial-gradient(
+                circle at top left,
+                color-mix(in oklab, var(--color-primary) 6%, transparent),
+                transparent 40%
+            ),
+            radial-gradient(
+                circle at bottom right,
+                color-mix(in oklab, var(--color-accent) 6%, transparent),
+                transparent 45%
+            );
+        background-attachment: fixed;
     }
 
-    * {
-        @apply transition-all duration-200;
+    ::selection {
+        background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+        color: var(--color-text-primary);
+    }
+
+    /* Smooth theme transitions, scoped to color + bg + border so we
+       don't induce a global layout-thrash on every hover. */
+    :where(html.theme-transition, html.theme-transition *) {
+        transition:
+            background-color 240ms ease,
+            border-color 240ms ease,
+            color 240ms ease,
+            fill 240ms ease,
+            stroke 240ms ease,
+            box-shadow 240ms ease !important;
+    }
+
+    /* Form controls inherit theme colors. */
+    input, textarea, select, button {
+        font: inherit;
+        color: inherit;
+    }
+
+    /* Always-visible focus ring (keyboard accessibility). */
+    :focus-visible {
+        outline: none;
+        box-shadow: var(--ring-focus);
+        border-radius: 0.625rem;
     }
 }
 
-/* ── Custom Utilities (Tailwind v4) ──────────────────────────── */
+/* ── Surface utilities (preserved class names) ─────────────── */
+/* `glass` and `glass-card` are referenced across dozens of files;
+   they used to mean "translucent slate panel". They now resolve to
+   theme-aware surfaces — light = crisp white with subtle border,
+   dark = zinc-900 with translucent overlay. The name is kept for
+   compatibility but the look is intentionally less "glassy". */
 
 @utility glass {
-    @apply bg-bg-glass backdrop-blur-md border border-border shadow-glass rounded-2xl;
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-glass);
 }
 
 @utility glass-card {
-    @apply bg-bg-glass backdrop-blur-md border border-border shadow-glass rounded-2xl hover:border-accent/40 hover:shadow-accent/5 transition-all duration-300;
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-glass);
+    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+@utility glass-card-hover {
+    /* Apply alongside glass-card to opt into the hover lift. */
+    &:hover {
+        border-color: var(--color-border-strong);
+        box-shadow: var(--shadow-elevated);
+    }
 }
 
+/* Translucent variant for headers/overlays where we DO want the
+   blurred-glass look (sticky header etc.). */
+@utility glass-translucent {
+    background-color: var(--color-bg-glass);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* ── Component-class shortcuts ─────────────────────────────── */
 @layer components {
     .btn-premium {
-        @apply px-4 py-2 bg-primary hover:bg-primary-light text-white rounded-xl font-medium shadow-lg shadow-primary/20 active:scale-95 transition-all;
+        @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl
+               text-sm font-semibold text-white bg-primary
+               shadow-sm shadow-primary/20 transition-colors;
     }
+    .btn-premium:hover { background-color: var(--color-primary-hover); }
+    .btn-premium:active { transform: translateY(1px); }
+    .btn-premium:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl
+               text-sm font-semibold text-text-primary bg-bg-subtle
+               border border-border transition-colors;
+    }
+    .btn-ghost:hover { background-color: var(--color-bg-hover); }
 
     .input-premium {
-        @apply bg-bg-hover/50 border border-border rounded-xl px-4 py-2 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all;
+        @apply w-full bg-bg-card text-text-primary
+               border border-border rounded-xl
+               px-3.5 py-2.5 text-sm
+               outline-none transition-colors;
+    }
+    .input-premium::placeholder { color: var(--color-text-muted); }
+    .input-premium:focus {
+        border-color: var(--color-primary);
+        box-shadow: var(--ring-focus);
+    }
+
+    .chip {
+        @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+               text-[11px] font-semibold tracking-wide;
+        background-color: var(--color-bg-subtle);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border);
+    }
+
+    .kbd {
+        @apply inline-flex items-center px-1.5 py-0.5 rounded-md
+               text-[10px] font-bold tracking-wide font-mono;
+        background-color: var(--color-bg-subtle);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border);
+        box-shadow: inset 0 -1px 0 var(--color-border);
+    }
+
+    /* Subtle divider for sections inside cards. */
+    .hr-soft {
+        height: 1px;
+        background: var(--color-border);
+        border: 0;
+        margin: 1rem 0;
     }
 }
 
-/* ── Custom Animations ───────────────────────────────────────── */
-
+/* ── Animations (kept minimal, no `* transition-all`) ───────── */
 @keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-5px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
 }
-
 @keyframes fade-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.55; }
 }
 
-@keyframes glow {
+.animate-float        { animation: float 4s ease-in-out infinite; }
+.animate-fade-in-up   { animation: fade-in-up 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in      { animation: fade-in 240ms ease-out both; }
+.animate-pulse-soft   { animation: pulse-soft 2s ease-in-out infinite; }
+.animate-pulse-badge  { animation: pulse-soft 1.8s ease-in-out infinite; }
 
-    0%,
-    100% {
-        box-shadow: 0 0 10px rgba(79, 70, 229, 0.1);
-    }
-
-    50% {
-        box-shadow: 0 0 20px rgba(79, 70, 229, 0.2);
-    }
-}
-
-@keyframes slow-zoom {
-    from {
-        transform: scale(1);
-    }
-
-    to {
-        transform: scale(1.1);
-    }
-}
-
-.animate-float {
-    animation: float 3s ease-in-out infinite;
-}
-
-.animate-fade-in-up {
-    animation: fade-in-up 0.4s ease-out forwards;
-}
-
-.animate-glow {
-    animation: glow 2s ease-in-out infinite;
-}
-
-.animate-slow-zoom {
-    animation: slow-zoom 20s ease-in-out infinite alternate;
-}
-
-/* ── Face Detection Animations ───────────────────────────────── */
-
+/* Face-detection page keeps its bespoke animations. */
 @keyframes scan-line {
-    0% {
-        transform: translateY(-100%);
-    }
-
-    100% {
-        transform: translateY(100vh);
-    }
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
 }
-
 @keyframes face-pulse {
-
-    0%,
-    100% {
-        box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
-    }
-
-    50% {
-        box-shadow: 0 0 0 12px rgba(79, 70, 229, 0);
-    }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.40); }
+    50%      { box-shadow: 0 0 0 12px rgba(99, 102, 241, 0.00); }
 }
+.animate-scan-line  { animation: scan-line 3s linear infinite; }
+.animate-face-pulse { animation: face-pulse 2s ease-in-out infinite; }
 
-@keyframes face-track-fade {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+/* Slow zoom for hero backgrounds — toned down. */
+@keyframes slow-zoom {
+    from { transform: scale(1); }
+    to   { transform: scale(1.06); }
 }
+.animate-slow-zoom { animation: slow-zoom 30s ease-in-out infinite alternate; }
 
-.animate-scan-line {
-    animation: scan-line 3s linear infinite;
-}
-
-.animate-face-pulse {
-    animation: face-pulse 2s ease-in-out infinite;
-}
-
-.animate-face-track-fade {
-    animation: face-track-fade 0.3s ease-out forwards;
-}
-
-/* Scrollbar Modernization */
-::-webkit-scrollbar {
-    width: 4px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--color-bg-dark);
-}
-
+/* ── Scrollbars ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-    background: var(--color-primary);
-    border-radius: 10px;
+    background: var(--color-border-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-text-muted) 60%, transparent);
     background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+
+/* Reduce motion — respect the user. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+    }
 }

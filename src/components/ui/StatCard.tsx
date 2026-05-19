@@ -1,37 +1,72 @@
 import { type ComponentType } from 'react'
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 interface StatCardProps {
     title: string
     value: string | number
     icon: ComponentType<any>
+    /** Tailwind text-color utility e.g. `text-primary` for the icon swatch. */
     color?: string
     subtitle?: string
+    /** Signed delta number, optional. Positive = green, negative = red. */
+    delta?: number
+    deltaLabel?: string
 }
 
-export default function StatCard({ title, value, icon: Icon, color = 'text-primary', subtitle }: StatCardProps) {
+export default function StatCard({
+    title,
+    value,
+    icon: Icon,
+    color = 'text-primary',
+    subtitle,
+    delta,
+    deltaLabel,
+}: StatCardProps) {
+    const deltaPositive = typeof delta === 'number' && delta >= 0
+    const DeltaIcon = deltaPositive ? ArrowUpRight : ArrowDownRight
+
     return (
-        <div className="glass-card p-6 relative overflow-hidden group">
-            {/* Background decoration */}
-            <div className={`absolute -right-4 -bottom-4 opacity-5 transition-transform duration-500 group-hover:scale-110 ${color}`}>
-                <Icon size={120} />
+        <div className="glass-card glass-card-hover p-5 relative overflow-hidden">
+            {/* Decorative watermark — very subtle, picks up the icon color. */}
+            <div className={`pointer-events-none absolute -right-6 -bottom-6 ${color} opacity-[0.06]`}>
+                <Icon size={140} strokeWidth={1.5} />
             </div>
 
-            <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className={`p-2.5 rounded-xl bg-white/5 border border-white/5 ${color} shadow-inner`}>
-                    <Icon size={22} strokeWidth={2.5} />
+            <div className="flex items-start justify-between mb-4 relative">
+                <div
+                    className={[
+                        'inline-flex items-center justify-center w-10 h-10 rounded-xl',
+                        'bg-bg-subtle border border-border',
+                        color,
+                    ].join(' ')}
+                >
+                    <Icon size={18} strokeWidth={2.25} />
                 </div>
-                {subtitle && (
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary bg-white/5 px-2 py-1 rounded-lg">
-                        {subtitle}
+                {typeof delta === 'number' && (
+                    <span
+                        className={[
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold',
+                            deltaPositive
+                                ? 'text-success bg-[color-mix(in_oklab,var(--color-success)_12%,transparent)]'
+                                : 'text-danger bg-[color-mix(in_oklab,var(--color-danger)_12%,transparent)]',
+                        ].join(' ')}
+                    >
+                        <DeltaIcon size={12} strokeWidth={2.5} />
+                        {Math.abs(delta).toFixed(0)}%
                     </span>
                 )}
             </div>
 
-            <div className="relative z-10">
-                <p className="text-sm font-bold text-text-secondary mb-1">{title}</p>
-                <p className="text-4xl font-black tracking-tighter text-text-primary capitalize">
+            <div className="relative">
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+                <p className="mt-1 text-3xl font-bold tracking-tight text-text-primary tabular-nums">
                     {value}
                 </p>
+                {(subtitle || deltaLabel) && (
+                    <p className="mt-2 text-xs text-text-secondary">
+                        {deltaLabel || subtitle}
+                    </p>
+                )}
             </div>
         </div>
     )
