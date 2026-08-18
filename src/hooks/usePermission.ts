@@ -19,6 +19,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'Admin Users': ['SUPER_ADMIN'],
     'Audit Log': ['SUPER_ADMIN'],
     'Student Auth Logs': ['SUPER_ADMIN'],
+    'RFID Dashboard': ['SUPER_ADMIN', 'HOD', 'FACULTY'],
+    'RFID Cards': ['SUPER_ADMIN', 'HOD', 'WARDEN'],
+    'RFID Readers': ['SUPER_ADMIN', 'HOD'],
+    'RFID Transactions': ['SUPER_ADMIN', 'HOD', 'WARDEN', 'SECURITY_GUARD', 'FACULTY'],
+    'RFID Live Monitor': ['SUPER_ADMIN', 'HOD', 'WARDEN', 'SECURITY_GUARD', 'FACULTY'],
 }
 
 export function canRoleView(role: string, item: string): boolean {

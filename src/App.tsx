@@ -22,6 +22,11 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import AuditLogPage from './pages/AuditLogPage'
 import StudentAuthLogsPage from './pages/StudentAuthLogsPage'
 import GeofencingPage from './pages/GeofencingPage'
+import RfidDashboardPage from './pages/RfidDashboardPage'
+import RfidCardsPage from './pages/RfidCardsPage'
+import RfidReadersPage from './pages/RfidReadersPage'
+import RfidTransactionsPage from './pages/RfidTransactionsPage'
+import RfidLiveMonitorPage from './pages/RfidLiveMonitorPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
     const token = useAuthStore((s) => s.token)
@@ -80,6 +85,11 @@ function DashboardLayout() {
                             <Route path="/geofencing" element={<PermissionRoute permission="Geofencing"><GeofencingPage /></PermissionRoute>} />
                             <Route path="/audit-log" element={<PermissionRoute permission="Audit Log"><AuditLogPage /></PermissionRoute>} />
                             <Route path="/student-auth-logs" element={<PermissionRoute permission="Student Auth Logs"><StudentAuthLogsPage /></PermissionRoute>} />
+                            <Route path="/rfid" element={<PermissionRoute permission="RFID Dashboard"><RfidDashboardPage /></PermissionRoute>} />
+                            <Route path="/rfid/cards" element={<PermissionRoute permission="RFID Cards"><RfidCardsPage /></PermissionRoute>} />
+                            <Route path="/rfid/readers" element={<PermissionRoute permission="RFID Readers"><RfidReadersPage /></PermissionRoute>} />
+                            <Route path="/rfid/transactions" element={<PermissionRoute permission="RFID Transactions"><RfidTransactionsPage /></PermissionRoute>} />
+                            <Route path="/rfid/live" element={<PermissionRoute permission="RFID Live Monitor"><RfidLiveMonitorPage /></PermissionRoute>} />
                             <Route path="*" element={<Navigate to={getRoleHome(role)} replace />} />
                         </Routes>
                     </div>

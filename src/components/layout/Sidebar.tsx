@@ -5,7 +5,7 @@ import { useUIStore } from '../../store/uiStore'
 import {
     LayoutDashboard, Radio, Users, ClipboardCheck, DoorOpen, Calendar,
     BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X, Home,
-    QrCode, MapPinned, Settings2,
+    QrCode, MapPinned, Settings2, CreditCard, Wifi, Cpu, Activity, Monitor,
 } from 'lucide-react'
 import api from '../../api/axios'
 
@@ -29,6 +29,16 @@ const navGroups: Array<{
             { path: '/students', label: 'Students', icon: Users, permission: 'Students' },
             { path: '/hostellers', label: 'Hostellers', icon: Home, permission: 'Hostellers' },
             { path: '/admin-users', label: 'Admin Users', icon: Shield, permission: 'Admin Users' },
+        ],
+    },
+    {
+        title: 'RFID & Access',
+        items: [
+            { path: '/rfid', label: 'RFID Overview', icon: Cpu, permission: 'RFID Dashboard' },
+            { path: '/rfid/cards', label: 'RFID Cards', icon: CreditCard, permission: 'RFID Cards' },
+            { path: '/rfid/readers', label: 'Readers', icon: Wifi, permission: 'RFID Readers' },
+            { path: '/rfid/transactions', label: 'Transactions', icon: Activity, permission: 'RFID Transactions' },
+            { path: '/rfid/live', label: 'Live Monitor', icon: Monitor, permission: 'RFID Live Monitor' },
         ],
     },
     {
