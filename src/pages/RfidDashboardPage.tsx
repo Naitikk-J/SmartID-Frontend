@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../api/axios'
 import {
@@ -8,6 +9,7 @@ import {
 import { useSocketStore } from '../store/socketStore'
 import { useRfidSocket } from '../hooks/useRfidSocket'
 import Badge from '../components/ui/Badge'
+import toast from 'react-hot-toast'
 
 export default function RfidDashboardPage() {
     useRfidSocket()
@@ -274,6 +276,191 @@ export default function RfidDashboardPage() {
                     )}
                 </div>
             </div>
+
+            {/* Re-entry Cooldown & Anti-Passback Security Controls */}
+            <CooldownSettingsPanel />
         </div>
     )
 }
+
+function CooldownSettingsPanel() {
+    const queryClient = useQueryClient()
+    const [overrideRoll, setOverrideRoll] = useState('')
+    const [overrideReason, setOverrideReason] = useState('')
+
+    const { data: cooldownData, isLoading } = useQuery({
+        queryKey: ['rfid-cooldown-settings'],
+        queryFn: () => api.get('/rfid/cooldown/settings').then(res => res.data.settings),
+    })
+
+    const [formState, setFormState] = useState<any>(null)
+
+    const activeSettings = formState || cooldownData || {
+        reentryCooldownSeconds: 120,
+        stayCooldownSeconds: 60,
+        tapDebounceSeconds: 5,
+        antiPassbackMode: 'TIMED',
+        dayScholarExempt: true,
+    }
+
+    const updateMutation = useMutation({
+        mutationFn: (payload: any) => api.put('/rfid/cooldown/settings', payload),
+        onSuccess: () => {
+            toast.success('Cooldown & Anti-Passback settings updated!')
+            queryClient.invalidateQueries({ queryKey: ['rfid-cooldown-settings'] })
+            setFormState(null)
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to update cooldown settings'),
+    })
+
+    const overrideMutation = useMutation({
+        mutationFn: (payload: any) => api.post('/rfid/cooldown/override', payload),
+        onSuccess: () => {
+            toast.success(`15-min cooldown override granted for student!`)
+            setOverrideRoll('')
+            setOverrideReason('')
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to grant cooldown override'),
+    })
+
+    const handleSave = () => {
+        updateMutation.mutate({
+            reentryCooldownSeconds: Number(activeSettings.reentryCooldownSeconds),
+            stayCooldownSeconds: Number(activeSettings.stayCooldownSeconds),
+            tapDebounceSeconds: Number(activeSettings.tapDebounceSeconds),
+            antiPassbackMode: activeSettings.antiPassbackMode,
+            dayScholarExempt: Boolean(activeSettings.dayScholarExempt),
+        })
+    }
+
+    const handleOverrideSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!overrideRoll.trim()) return toast.error('Enter student Roll Number or ID')
+        try {
+            // Find student by enrollmentNo
+            const studentRes = await api.get('/students', { params: { search: overrideRoll.trim(), limit: 1 } })
+            const students = studentRes.data.data?.students || studentRes.data.students || []
+            if (students.length === 0) return toast.error('Student not found')
+            
+            overrideMutation.mutate({
+                studentId: students[0].id,
+                reason: overrideReason || 'Manual Security Guard Bypass',
+            })
+        } catch {
+            toast.error('Could not find student')
+        }
+    }
+
+    if (isLoading) return null
+
+    return (
+        <div className="rounded-2xl bg-bg-card border border-border p-6 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500">
+                        <ShieldCheck size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-base font-bold text-text-primary">Re-entry Cooldown & Anti-Passback Settings</h2>
+                        <p className="text-xs text-text-muted">Enforce minimum stay durations, prevent credential sharing, and configure rapid tap suppression</p>
+                    </div>
+                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={updateMutation.isPending}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary-hover shadow-sm transition-colors self-start sm:self-auto disabled:opacity-50"
+                >
+                    {updateMutation.isPending ? 'Saving...' : 'Save Cooldown Rules'}
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Re-entry Cooldown Window */}
+                <div className="p-4 rounded-xl bg-bg-subtle border border-border space-y-2">
+                    <label className="text-xs font-bold text-text-primary flex items-center justify-between">
+                        <span>Re-entry Cooldown (After Exit)</span>
+                        <span className="font-mono text-primary font-bold">{activeSettings.reentryCooldownSeconds}s ({Math.round(activeSettings.reentryCooldownSeconds / 60)} min)</span>
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="1800"
+                        step="15"
+                        value={activeSettings.reentryCooldownSeconds}
+                        onChange={(e) => setFormState({ ...activeSettings, reentryCooldownSeconds: Number(e.target.value) })}
+                        className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-text-muted">Minimum seconds a student must wait after EXIT before they can RE-ENTER campus.</p>
+                </div>
+
+                {/* Minimum Stay Cooldown */}
+                <div className="p-4 rounded-xl bg-bg-subtle border border-border space-y-2">
+                    <label className="text-xs font-bold text-text-primary flex items-center justify-between">
+                        <span>Minimum Campus Stay Cooldown</span>
+                        <span className="font-mono text-primary font-bold">{activeSettings.stayCooldownSeconds}s</span>
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="600"
+                        step="10"
+                        value={activeSettings.stayCooldownSeconds}
+                        onChange={(e) => setFormState({ ...activeSettings, stayCooldownSeconds: Number(e.target.value) })}
+                        className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-text-muted">Minimum seconds a student must stay inside after ENTRY before allowed to EXIT.</p>
+                </div>
+
+                {/* Anti-Passback Mode */}
+                <div className="p-4 rounded-xl bg-bg-subtle border border-border space-y-2">
+                    <label className="text-xs font-bold text-text-primary">Anti-Passback (APB) Mode</label>
+                    <select
+                        value={activeSettings.antiPassbackMode}
+                        onChange={(e) => setFormState({ ...activeSettings, antiPassbackMode: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-bg-card border border-border text-xs text-text-primary focus:outline-none focus:border-primary"
+                    >
+                        <option value="TIMED">TIMED (Cooldown Window Based)</option>
+                        <option value="STRICT">STRICT (Requires Alternating ENTRY/EXIT)</option>
+                        <option value="DISABLED">DISABLED (Open Taps)</option>
+                    </select>
+                    <p className="text-[11px] text-text-muted">Strict mode prevents double entries without an intervening exit.</p>
+                </div>
+            </div>
+
+            {/* Emergency 15-Minute Cooldown Bypass Form */}
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-xs font-bold text-text-primary flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        Emergency Student Cooldown Bypass (15-Min Window)
+                    </h3>
+                    <p className="text-[11px] text-text-muted mt-0.5">Allows security guards / wardens to instantly clear a cooldown for a specific student</p>
+                </div>
+                <form onSubmit={handleOverrideSubmit} className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <input
+                        type="text"
+                        placeholder="Enrollment / Roll No"
+                        value={overrideRoll}
+                        onChange={(e) => setOverrideRoll(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl bg-bg-card border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Reason (optional)"
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl bg-bg-card border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+                    />
+                    <button
+                        type="submit"
+                        disabled={overrideMutation.isPending}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 shadow-sm transition-colors disabled:opacity-50"
+                    >
+                        {overrideMutation.isPending ? 'Applying...' : 'Grant Bypass'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    )
+}
+
