@@ -1,6 +1,8 @@
 // Status badges — colour is data, not decoration. Keeping the dot
 // + label format because operators visually scan them in long lists.
 
+import React from 'react'
+
 type BadgeKey = 'GREEN' | 'RED' | 'AMBER' | 'GREY'
 
 const badgeStyles: Record<BadgeKey, { dot: string; bg: string; text: string }> = {
@@ -26,8 +28,17 @@ const badgeStyles: Record<BadgeKey, { dot: string; bg: string; text: string }> =
     },
 }
 
+const variantToKey: Record<string, BadgeKey> = {
+    success: 'GREEN',
+    danger: 'RED',
+    warning: 'AMBER',
+    neutral: 'GREY',
+    info: 'GREEN',
+}
+
 const resultLabels: Record<string, string> = {
     VERIFIED: 'Verified',
+    GRANTED: 'Granted',
     FAKE: 'Fake',
     LOST: 'Card Lost',
     INACTIVE: 'Inactive',
@@ -39,18 +50,30 @@ const resultLabels: Record<string, string> = {
     DENIED: 'Denied',
 }
 
-interface BadgeProps {
-    result: string
+export interface BadgeProps {
+    result?: string
     badge?: string
+    variant?: 'success' | 'danger' | 'warning' | 'neutral' | string
+    children?: React.ReactNode
     size?: 'sm' | 'md' | 'lg'
 }
 
-export default function Badge({ result, badge, size = 'sm' }: BadgeProps) {
-    const key = (badge || 'GREY') as BadgeKey
+export default function Badge({ result, badge, variant, children, size = 'sm' }: BadgeProps) {
+    let key: BadgeKey = 'GREY'
+    if (variant && variantToKey[variant]) {
+        key = variantToKey[variant]
+    } else if (badge && badgeStyles[badge as BadgeKey]) {
+        key = badge as BadgeKey
+    }
+
     const style = badgeStyles[key] ?? badgeStyles.GREY
-    const label = resultLabels[result] || (
-        result?.startsWith('REENTERED_') ? `Re-entry (${result.split('_')[1]})` : result
-    )
+
+    let label: React.ReactNode = children
+    if (!label && result) {
+        label = resultLabels[result] || (
+            result.startsWith('REENTERED_') ? `Re-entry (${result.split('_')[1]})` : result
+        )
+    }
 
     const sizeClasses = {
         sm: 'px-2 py-0.5 text-[10px] gap-1.5',
