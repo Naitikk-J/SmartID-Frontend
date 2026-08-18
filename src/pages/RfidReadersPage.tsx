@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import {
-    Wifi, Plus, Shield, MapPin, Activity, Clock, CheckCircle2,
-    XCircle, AlertTriangle, Key, Edit, Ban, RefreshCw
+    Wifi, Plus, MapPin, Clock, Edit, Ban, RefreshCw
 } from 'lucide-react'
 import Badge from '../components/ui/Badge'
 import toast from 'react-hot-toast'
@@ -339,9 +338,7 @@ export default function RfidReadersPage() {
             {revokingReader && (
                 <div className="fixed inset-0 bg-bg-overlay backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-                        <h3 className="text-base font-bold text-danger flex items-center gap-2">
-                            <AlertTriangle size={18} /> Revoke Reader
-                        </h3>
+                        <h3 className="text-base font-bold text-danger">Revoke Reader</h3>
                         <p className="text-xs text-text-muted">
                             Are you sure you want to revoke reader <span className="font-bold text-text-primary">{revokingReader.deviceName}</span> ({revokingReader.readerId})? Any further requests signed with its credentials will be rejected.
                         </p>

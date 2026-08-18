@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
 import {
-    Activity, Search, Filter, Calendar, CheckCircle2, XCircle,
-    Download, ChevronLeft, ChevronRight, Eye, Clock, Wifi, CreditCard
+    CheckCircle2, XCircle, Download, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react'
-import Badge from '../components/ui/Badge'
 import toast from 'react-hot-toast'
 
 export default function RfidTransactionsPage() {

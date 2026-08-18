@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../api/axios'
 import {
-    Cpu, CreditCard, Wifi, Activity, CheckCircle2, XCircle, AlertTriangle,
-    ArrowRight, Radio, ShieldCheck, Clock, ExternalLink
+    Cpu, CreditCard, Wifi, Activity, CheckCircle2, XCircle,
+    ArrowRight, Radio, ShieldCheck, ExternalLink
 } from 'lucide-react'
 import { useSocketStore } from '../store/socketStore'
 import { useRfidSocket } from '../hooks/useRfidSocket'
@@ -13,7 +13,7 @@ export default function RfidDashboardPage() {
     useRfidSocket()
     const { rfidFeed, connected } = useSocketStore()
 
-    const { data: statsData, isLoading, refetch } = useQuery({
+    const { data: statsData, isLoading } = useQuery({
         queryKey: ['rfid-stats'],
         queryFn: () => api.get('/rfid/stats').then(res => res.data.stats),
         refetchInterval: 10000,
@@ -229,7 +229,7 @@ export default function RfidDashboardPage() {
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <Badge variant={evt.accessResult === 'GRANTED' ? 'success' : 'danger'}>
+                                        <Badge variant={evt.accessResult === 'GRANTED' || evt.result === 'VERIFIED' ? 'success' : 'danger'}>
                                             {evt.accessResult || evt.result || 'TAP'}
                                         </Badge>
                                         <p className="text-[10px] text-text-muted mt-1">{new Date(evt.time).toLocaleTimeString()}</p>

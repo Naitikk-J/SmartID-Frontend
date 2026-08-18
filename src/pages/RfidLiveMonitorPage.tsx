@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
 import {
-    Monitor, Radio, CheckCircle2, XCircle, Wifi, ShieldAlert,
-    Trash2, Pause, Play, Volume2, VolumeX, Activity, ArrowDown
+    Monitor, Radio, CheckCircle2, XCircle, Wifi,
+    Trash2, Pause, Play, Volume2, VolumeX, Activity
 } from 'lucide-react'
 import { useSocketStore } from '../store/socketStore'
 import { useRfidSocket } from '../hooks/useRfidSocket'
