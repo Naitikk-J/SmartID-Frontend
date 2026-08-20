@@ -246,13 +246,19 @@ export default function QrProjectorPage() {
                     <p className="text-xs text-warning">No active events right now. Showing all events so you can still project and test QR.</p>
                 )}
 
-                <div ref={projectQrContainerRef} className="rounded-2xl border border-primary/30 bg-black/20 p-6 flex flex-col items-center justify-center min-h-[420px]">
+                <div ref={projectQrContainerRef} className="rounded-2xl border border-primary/30 bg-black/30 p-8 flex flex-col items-center justify-center min-h-[460px]">
                     {isLoadingProjectorQr ? (
                         <p className="text-sm text-text-secondary">Generating dynamic QR...</p>
                     ) : projectorQrData?.token ? (
-                        <div className="w-full flex flex-col items-center gap-4">
-                            <div className="p-4 bg-white rounded-xl shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-all duration-500 ease-in-out">
-                                <QRCodeSVG value={projectorQrData.token} size={300} level="H" includeMargin={false} />
+                        <div className="w-full flex flex-col items-center gap-5">
+                            <div className="p-6 bg-white rounded-3xl shadow-[0_0_60px_rgba(255,255,255,0.35)] transition-all duration-300">
+                                <QRCodeSVG
+                                    value={projectorQrData.token}
+                                    size={380}
+                                    level="L"
+                                    marginSize={2}
+                                    className="rounded-xl"
+                                />
                             </div>
                             <div className="flex items-center gap-4 text-xs text-text-secondary">
                                 <span className="uppercase tracking-widest font-black">{isLiveGateProjector ? 'LIVE_GATE' : projectQrType} mode</span>

@@ -166,9 +166,9 @@ export default function StudentDetailPage() {
                         <QRCodeCanvas
                             id="student-qr"
                             value={activeCard?.qrToken || ''}
-                            size={200}
-                            level="H"
-                            includeMargin={true}
+                            size={220}
+                            level="M"
+                            marginSize={2}
                         />
                     </div>
                     <div className="text-center">

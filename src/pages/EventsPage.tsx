@@ -923,8 +923,8 @@ export default function EventsPage() {
                                     id="event-mess-qr"
                                     value={messQrToken}
                                     size={200}
-                                    level="H"
-                                    includeMargin={true}
+                                    level="M"
+                                    marginSize={2}
                                 />
                             </div>
                             <button

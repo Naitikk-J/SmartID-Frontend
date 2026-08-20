@@ -239,7 +239,7 @@ export default function AccessControlPanel() {
                     ) : (
                         <div className="space-y-3">
                             <div className="p-3 bg-white rounded-xl mx-auto w-fit">
-                                <QRCodeSVG value={liveQr.qr_token} size={150} level="H" includeMargin={false} />
+                                <QRCodeSVG value={liveQr.qr_token} size={180} level="L" marginSize={2} />
                             </div>
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-text-secondary">TTL</p>

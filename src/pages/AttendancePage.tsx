@@ -989,8 +989,13 @@ export default function AttendancePage() {
                         <div className="flex-1 flex items-center justify-center">
                             {projectorQrToken ? (
                                 <div className="flex flex-col items-center gap-5">
-                                    <div className="bg-white p-5 md:p-7 rounded-3xl shadow-2xl shadow-black/60">
-                                        <QRCodeSVG value={projectorQrToken} size={Math.min(window.innerWidth * 0.52, 640)} />
+                                    <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl shadow-black/60">
+                                        <QRCodeSVG
+                                            value={projectorQrToken}
+                                            size={Math.min(window.innerWidth * 0.55, 600)}
+                                            level="L"
+                                            marginSize={2}
+                                        />
                                     </div>
                                     <div className="text-center">
                                         {projectorSession?.qrMode === 'DYNAMIC' ? (

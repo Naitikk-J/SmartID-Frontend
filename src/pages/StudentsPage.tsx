@@ -493,9 +493,9 @@ export default function StudentsPage() {
                                 id="student-qr-table"
                                 value={selectedStudent.cards?.find((c: any) => c.status === 'ACTIVE')?.qrToken || ''}
                                 size={220}
-                                level="H"
-                                includeMargin={true}
-                                className="relative z-10"
+                                level="M"
+                                marginSize={2}
+                                className="relative z-10 rounded-lg"
                             />
                         </div>
                         <div className="text-center space-y-1">
