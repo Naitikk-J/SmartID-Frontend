@@ -493,7 +493,8 @@ export default function StudentsPage() {
                                 id="student-qr-table"
                                 value={selectedStudent.cards?.find((c: any) => c.status === 'ACTIVE')?.qrToken || ''}
                                 size={220}
-                                level="M"
+                                level="L"
+                                boostLevel={false}
                                 marginSize={2}
                                 className="relative z-10 rounded-lg"
                             />

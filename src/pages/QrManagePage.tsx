@@ -242,7 +242,7 @@ export default function QrManagePage() {
                             <div className="flex flex-col items-center gap-5 relative z-10">
                                 <div className="text-center"><p className="text-lg font-black text-text-primary">{label}</p><p className="text-xs text-text-secondary mt-0.5">{isDyn?`Auto-refreshes every ${ttl}s`:'Static — does not expire'}</p></div>
                                 <div className="p-4 bg-white rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.15)] hover:scale-[1.02] transition-all duration-500 ease-out">
-                                    <QRCodeSVG value={token} size={280} level="L" marginSize={2} />
+                                    <QRCodeSVG value={token} size={280} level="L" boostLevel={false} marginSize={2} />
                                 </div>
                                 <p className="text-[10px] text-text-secondary font-mono break-all max-w-sm text-center">{token.length>60?token.slice(0,60)+'…':token}</p>
                             </div>

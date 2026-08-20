@@ -923,7 +923,8 @@ export default function EventsPage() {
                                     id="event-mess-qr"
                                     value={messQrToken}
                                     size={200}
-                                    level="M"
+                                    level="L"
+                                    boostLevel={false}
                                     marginSize={2}
                                 />
                             </div>

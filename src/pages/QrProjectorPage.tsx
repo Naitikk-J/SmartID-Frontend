@@ -256,6 +256,7 @@ export default function QrProjectorPage() {
                                     value={projectorQrData.token}
                                     size={380}
                                     level="L"
+                                    boostLevel={false}
                                     marginSize={2}
                                     className="rounded-xl"
                                 />

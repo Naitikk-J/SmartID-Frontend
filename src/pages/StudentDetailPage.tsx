@@ -167,7 +167,8 @@ export default function StudentDetailPage() {
                             id="student-qr"
                             value={activeCard?.qrToken || ''}
                             size={220}
-                            level="M"
+                            level="L"
+                            boostLevel={false}
                             marginSize={2}
                         />
                     </div>

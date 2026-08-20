@@ -994,6 +994,7 @@ export default function AttendancePage() {
                                             value={projectorQrToken}
                                             size={Math.min(window.innerWidth * 0.55, 600)}
                                             level="L"
+                                            boostLevel={false}
                                             marginSize={2}
                                         />
                                     </div>
