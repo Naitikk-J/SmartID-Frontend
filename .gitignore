@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ─── Environment / secrets ───────────────────────────────────
+# Vite bundles every VITE_*-prefixed value into the client JS
+# on build, so anything sensitive must never live here. Kept
+# gitignored regardless of contents so per-environment overrides
+# don't leak.
+.env
+.env.*
+!.env.example
