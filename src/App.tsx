@@ -27,6 +27,10 @@ import RfidCardsPage from './pages/RfidCardsPage'
 import RfidReadersPage from './pages/RfidReadersPage'
 import RfidTransactionsPage from './pages/RfidTransactionsPage'
 import RfidLiveMonitorPage from './pages/RfidLiveMonitorPage'
+import CampusEntryAdminPage from './pages/CampusEntryAdminPage'
+import StudentPortalLoginPage from './pages/StudentPortalLoginPage'
+import StudentPassPage from './pages/StudentPassPage'
+import ScannerCameraPage from './pages/ScannerCameraPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
     const token = useAuthStore((s) => s.token)
@@ -35,7 +39,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 function getRoleHome(role?: string) {
-    if (role === 'SECURITY_GUARD') return '/qr-projector'
+    // Camera-only scanner roles land directly on the scanner page.
+    // (Spec: "scanner person can log in with their credential ...
+    // they will open their camera. They have only access to camera.")
+    if (role === 'SECURITY_GUARD') return '/scanner'
     if (role === 'WARDEN') return '/qr-projector'
     return '/'
 }
@@ -90,6 +97,7 @@ function DashboardLayout() {
                             <Route path="/rfid/readers" element={<PermissionRoute permission="RFID Readers"><RfidReadersPage /></PermissionRoute>} />
                             <Route path="/rfid/transactions" element={<PermissionRoute permission="RFID Transactions"><RfidTransactionsPage /></PermissionRoute>} />
                             <Route path="/rfid/live" element={<PermissionRoute permission="RFID Live Monitor"><RfidLiveMonitorPage /></PermissionRoute>} />
+                            <Route path="/campus-entry" element={<PermissionRoute permission="Campus Entry"><CampusEntryAdminPage /></PermissionRoute>} />
                             <Route path="*" element={<Navigate to={getRoleHome(role)} replace />} />
                         </Routes>
                     </div>
@@ -99,10 +107,35 @@ function DashboardLayout() {
     )
 }
 
+function ScannerAuthGuard({ children }: { children: React.ReactNode }) {
+    const token = useAuthStore((s) => s.token)
+    const role = useAuthStore((s) => s.user?.role)
+    if (!token) return <Navigate to="/login" replace />
+    // SECURITY_GUARD and EVENT_MANAGER are the intended camera-only
+    // roles; SUPER_ADMIN / HOD can also open the scanner for testing.
+    const allowed = ['SECURITY_GUARD', 'EVENT_MANAGER', 'SUPER_ADMIN', 'HOD']
+    if (!allowed.includes(role || '')) {
+        return <Navigate to={getRoleHome(role)} replace />
+    }
+    return <>{children}</>
+}
+
 export default function App() {
     return (
         <Routes>
+            {/* Admin console */}
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Scanner — full-screen camera, isolated from the admin chrome */}
+            <Route path="/scanner" element={<ScannerAuthGuard><ScannerCameraPage /></ScannerAuthGuard>} />
+
+            {/* Student portal — separate auth namespace (STUDENT_AUTH_KEY),
+                NOT gated by the admin AuthGuard. */}
+            <Route path="/student/login" element={<StudentPortalLoginPage />} />
+            <Route path="/student/pass" element={<StudentPassPage />} />
+            <Route path="/student" element={<Navigate to="/student/login" replace />} />
+
+            {/* Admin dashboard (catch-all) */}
             <Route path="/*" element={<AuthGuard><DashboardLayout /></AuthGuard>} />
         </Routes>
     )

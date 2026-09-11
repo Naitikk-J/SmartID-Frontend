@@ -17,8 +17,6 @@ export default function LoginPage() {
     const setAuth = useAuthStore((s) => s.setAuth)
     const resolved = useThemeStore((s) => s.resolved)
     const navigate = useNavigate()
-    const studentPortalUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'smartid://login'
-    const studentPortalFallbackUrl = import.meta.env.VITE_STUDENT_PORTAL_FALLBACK_URL as string | undefined
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
     // ── Helpers (unchanged from previous version) ───────────────
@@ -33,36 +31,25 @@ export default function LoginPage() {
         } catch { return null }
     }
 
-    const redirectToStudentSide = () => {
-        if (studentPortalUrl.startsWith('smartid://')) {
-            const start = Date.now()
-            window.location.href = studentPortalUrl
-            window.setTimeout(() => {
-                if (Date.now() - start < 1800) {
-                    if (studentPortalFallbackUrl) {
-                        window.location.href = studentPortalFallbackUrl
-                        return
-                    }
-                    toast.error('Student app is not installed on this device. Please login from the official student app.')
-                }
-            }, 1200)
-            return
-        }
-        window.location.href = studentPortalUrl
-    }
-
     const handleAuthSuccess = (authPayload: any) => {
         const authData = authPayload?.data || authPayload
         const role = authData?.user?.role
         const emailValue = String(authData?.user?.email || '').toLowerCase()
         if (role === 'STUDENT' || emailValue.endsWith('@mitsgwl.ac.in')) {
-            toast('Student account detected. Redirecting to student side…')
-            redirectToStudentSide()
+            // Students never belong on the admin console; push them to
+            // the web student portal (or the mobile app if configured).
+            toast('Student account detected. Opening student portal…')
+            navigate('/student/login', { replace: true })
             return
         }
         setAuth(authData)
         toast.success('Welcome back!')
-        navigate('/')
+        // Camera-only roles land straight on the scanner.
+        if (role === 'SECURITY_GUARD') {
+            navigate('/scanner', { replace: true })
+        } else {
+            navigate('/')
+        }
     }
 
     // ── Google Identity Services bootstrap ──────────────────────
@@ -82,9 +69,9 @@ export default function LoginPage() {
                             return
                         }
                         const tokenEmail = decodeGoogleEmailFromIdToken(idToken)
-                        if (tokenEmail?.endsWith('@mitsgwl.ac.in')) {
-                            toast('Student account detected. Redirecting to student side…')
-                            redirectToStudentSide()
+                        if (tokenEmail?.endsWith('@mitsgwl.ac.in') || tokenEmail?.endsWith('@mitsjwl.ac.in')) {
+                            toast('Student account detected. Opening student portal…')
+                            navigate('/student/login', { replace: true })
                             return
                         }
                         if (

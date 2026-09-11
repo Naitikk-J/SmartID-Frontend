@@ -6,6 +6,7 @@ import {
     LayoutDashboard, Radio, Users, ClipboardCheck, DoorOpen, Calendar,
     BookOpen, Vote, BarChart3, Heart, Shield, ScrollText, LogOut, X, Home,
     QrCode, MapPinned, Settings2, CreditCard, Wifi, Cpu, Activity, Monitor,
+    Ticket,
 } from 'lucide-react'
 import api from '../../api/axios'
 
@@ -44,6 +45,7 @@ const navGroups: Array<{
     {
         title: 'Access',
         items: [
+            { path: '/campus-entry', label: 'Campus Entry', icon: Ticket, permission: 'Campus Entry' },
             { path: '/qr-projector', label: 'QR Projector', icon: QrCode, permission: 'QR Projector' },
             { path: '/qr-manage', label: 'QR Manage', icon: Settings2, permission: 'QR Manage' },
             { path: '/exit-rules', label: 'Exit Rules', icon: DoorOpen, permission: 'Exit Rules' },
