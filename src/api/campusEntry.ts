@@ -116,6 +116,15 @@ export async function scanCampusEntry(qrToken: string, extra?: {
     return data.data as ScanResult
 }
 
+// Warm-up ping — called when the scanner camera page mounts so the
+// first REAL scan doesn't pay a Vercel serverless cold-start (~1-2s).
+// Hits /health which is public + cheap; the point is just to force
+// the backend container + Prisma client to spin up before the guard
+// aims at the first student's QR. Safe to fail silently.
+export async function warmupCampusEntry() {
+    await api.get('/health', { timeout: 4000 })
+}
+
 export type ScanResult = {
     ok: boolean
     reason: string

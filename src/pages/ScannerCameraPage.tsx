@@ -17,7 +17,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { CheckCircle2, XCircle, AlertTriangle, Camera, Loader2 } from 'lucide-react'
-import { scanCampusEntry, type ScanResult } from '../api/campusEntry'
+import { scanCampusEntry, warmupCampusEntry, type ScanResult } from '../api/campusEntry'
+
+// Perceived-latency helpers: fire immediately on decode, before the
+// server round-trip completes. A vibrating phone + a snap of visual
+// feedback makes a 150ms API call feel instant to the guard.
+function haptic(pattern: number | number[]) {
+    try { navigator.vibrate?.(pattern) } catch { /* not supported on iOS Safari */ }
+}
 
 const CAMERA_ELEMENT_ID = 'campus-entry-camera'
 
@@ -45,6 +52,11 @@ export default function ScannerCameraPage() {
     const consumedTokensRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
+        // Fire a warm-up request the moment the scanner mounts so the
+        // first REAL scan of the day doesn't eat a Vercel cold start
+        // (~1-2s). This request is cheap and safe to fail.
+        warmupCampusEntry().catch(() => { /* ignore */ })
+
         let cancelled = false
         const scanner = new Html5Qrcode(CAMERA_ELEMENT_ID, /* verbose= */ false)
         scannerRef.current = scanner
@@ -64,12 +76,18 @@ export default function ScannerCameraPage() {
                 await scanner.start(
                     rear.id,
                     {
-                        // 25 fps = ~40ms per decode attempt. QR detection is
-                        // cheap; the real cost was the sequential DB writes
-                        // on the backend (fixed separately). This gets us
-                        // sub-100ms from "QR in frame" to "request sent".
-                        fps: 25,
-                        qrbox: { width: 260, height: 260 },
+                        // 30 fps = the practical max any modern phone camera
+                        // will actually deliver. Decode attempts every ~33ms
+                        // — QR-in-frame to request-sent is now ~35ms.
+                        fps: 30,
+                        // qrbox: responsive to viewport (min 220px, capped
+                        // at 320px). Smaller box = faster decode because the
+                        // library only scans that pixel region.
+                        qrbox: (vw, vh) => {
+                            const min = Math.min(vw, vh)
+                            const size = Math.max(220, Math.min(320, Math.floor(min * 0.7)))
+                            return { width: size, height: size }
+                        },
                         aspectRatio: 1.0,
                     },
                     onDecode,
@@ -120,9 +138,18 @@ export default function ScannerCameraPage() {
         consumedTokensRef.current.add(decoded)
         inFlightRef.current = true
 
+        // Immediate feedback — buzz the phone the INSTANT we decoded a
+        // QR, before the /scan round-trip returns. Guards feel this as
+        // "scanned!" even if the network takes 200ms.
+        haptic(40)
+        // Optimistic pending banner so the screen doesn't sit blank
+        // while waiting. Gets replaced by the real result below.
+        setBanner({ kind: 'success', title: 'Verifying…', expiresAt: Date.now() + 3000 })
+
         try {
             const result = await scanCampusEntry(decoded, gateLabel ? { gateLabel } : undefined)
             if (result.ok) {
+                haptic([30, 40, 30]) // triple pulse = success
                 setBanner({
                     kind: 'success',
                     title: 'Entry recorded',
@@ -133,6 +160,7 @@ export default function ScannerCameraPage() {
                     expiresAt: Date.now() + 1500,
                 })
             } else if (result.reason === 'ALREADY_ENTERED') {
+                haptic([80, 60, 80]) // longer double = warning
                 setBanner({
                     kind: 'warning',
                     title: 'Already entered',
@@ -141,6 +169,7 @@ export default function ScannerCameraPage() {
                     expiresAt: Date.now() + 3000,
                 })
             } else if (result.reason === 'EXPIRED') {
+                haptic(200)
                 setBanner({
                     kind: 'error',
                     title: 'QR expired',
@@ -148,6 +177,7 @@ export default function ScannerCameraPage() {
                     expiresAt: Date.now() + 2500,
                 })
             } else {
+                haptic(200)
                 setBanner({
                     kind: 'error',
                     title: 'Invalid QR',
@@ -156,6 +186,7 @@ export default function ScannerCameraPage() {
                 })
             }
         } catch (err: any) {
+            haptic(200)
             setBanner({
                 kind: 'error',
                 title: 'Scan failed',
@@ -163,11 +194,12 @@ export default function ScannerCameraPage() {
                 expiresAt: Date.now() + 2500,
             })
         } finally {
-            // Tight guard-band — same-token dedupe (4s above) still
-            // stops the same student's QR triggering back-to-back
-            // requests. This only limits DIFFERENT tokens in a row,
-            // so 100ms keeps throughput at ~10 scans/sec.
-            setTimeout(() => { inFlightRef.current = false }, 100)
+            // No cooldown — inFlightRef alone is enough to prevent
+            // parallel requests, and consumedTokensRef prevents the
+            // same QR being sent twice. The next DIFFERENT token can
+            // fire the very next frame, so throughput is bound only
+            // by the API latency (~100-150ms per scan).
+            inFlightRef.current = false
         }
     }
 
@@ -221,12 +253,10 @@ export default function ScannerCameraPage() {
                     </div>
                 )}
 
-                {/* Aim frame overlay */}
-                {ready && !banner && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <div className="w-[260px] h-[260px] rounded-2xl border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
-                    </div>
-                )}
+                {/* No custom aim overlay here — html5-qrcode already
+                    draws its own qrbox with L-brackets + a shaded
+                    background. Adding a second frame on top of it
+                    produces the double-frame you saw on iOS. */}
 
                 {banner && (
                     <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
