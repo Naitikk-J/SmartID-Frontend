@@ -21,7 +21,7 @@ import toast from 'react-hot-toast'
 import {
     CheckCircle2, Upload, RefreshCw, Search, Mail, MailX, Undo2,
     Loader2, ShieldAlert, TrendingUp, Users, LogIn, ScanLine,
-    UserPlus, FileSpreadsheet, UserCheck,
+    UserPlus, FileSpreadsheet, UserCheck, Sunrise,
 } from 'lucide-react'
 import {
     enrollCampusParticipants,
@@ -30,6 +30,8 @@ import {
     listCampusScans,
     listCampusParticipants,
     revokeCampusEntry,
+    revokeCampusEntriesBulk,
+    resetCampusEntryDay,
     resendCredentials,
     fetchCredentialEmails,
     fetchCampusStats,
@@ -235,27 +237,98 @@ function ScanRow({ row }: { row: any }) {
 
 // ═════════════════════════════════════════════════════════════
 // PARTICIPANTS
+// Multi-select revoke + one-shot "Reset for next day".
+// Defaults to "Entered" filter — that's the list a gate admin wants
+// staring at during rush; it's also the list you'd bulk-revoke.
 // ═════════════════════════════════════════════════════════════
 function ParticipantsTab() {
-    const [filter, setFilter] = useState<'entered' | 'not_entered' | 'revoked' | null>(null)
+    const qc = useQueryClient()
+    const [filter, setFilter] = useState<'entered' | 'not_entered' | 'revoked' | null>('entered')
     const [search, setSearch] = useState('')
+    const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [busy, setBusy] = useState<null | 'bulk' | 'reset'>(null)
+
     const participants = useQuery({
         queryKey: ['campus-entry', 'participants', filter, search],
-        queryFn: () => listCampusParticipants({ limit: 100, filter, search: search || null }),
+        queryFn: () => listCampusParticipants({ limit: 200, filter, search: search || null }),
+        // Refresh the entered list every 3s so multi-select stays in
+        // sync while guards are scanning at the gate.
+        refetchInterval: filter === 'entered' ? 3000 : false,
     })
+
+    const rows: any[] = participants.data?.participants || []
+    const enteredRows = rows.filter((p) => p.entryUsedAt)
+    // Only entered rows are actually revocable — that's what the
+    // checkbox lets you pick from.
+    const selectableIds = enteredRows.map((p) => p.id)
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id))
+
+    function toggle(id: string) {
+        setSelected((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            return next
+        })
+    }
+
+    function toggleAll() {
+        setSelected((prev) => {
+            if (allSelected) {
+                const next = new Set(prev)
+                for (const id of selectableIds) next.delete(id)
+                return next
+            }
+            const next = new Set(prev)
+            for (const id of selectableIds) next.add(id)
+            return next
+        })
+    }
+
+    async function handleBulkRevoke() {
+        if (selected.size === 0) return
+        if (!confirm(`Revoke entry for ${selected.size} student${selected.size === 1 ? '' : 's'}? They will be able to enter again.`)) return
+        try {
+            setBusy('bulk')
+            const r = await revokeCampusEntriesBulk(Array.from(selected), 'Admin bulk revoke')
+            toast.success(`Revoked ${r.revoked} entr${r.revoked === 1 ? 'y' : 'ies'}`)
+            setSelected(new Set())
+            qc.invalidateQueries({ queryKey: ['campus-entry'] })
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || err.message || 'Bulk revoke failed')
+        } finally { setBusy(null) }
+    }
+
+    async function handleResetDay() {
+        // Two-step confirm — this is the "nuke the entire day's
+        // entries" button, so we double-gate it.
+        if (!confirm('Reset campus entry for the next day?\n\nThis clears the entry lock for EVERY student who has entered today, so tomorrow morning they can enter again with the same credentials.\n\nProceed?')) return
+        if (!confirm('Are you sure? This cannot be undone.')) return
+        try {
+            setBusy('reset')
+            const r = await resetCampusEntryDay('Reset for next day')
+            toast.success(`Reset complete — ${r.revoked} student${r.revoked === 1 ? '' : 's'} cleared for tomorrow`)
+            setSelected(new Set())
+            qc.invalidateQueries({ queryKey: ['campus-entry'] })
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || err.message || 'Reset failed')
+        } finally { setBusy(null) }
+    }
 
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
                 <select
                     value={filter || ''}
-                    onChange={(e) => setFilter((e.target.value || null) as any)}
+                    onChange={(e) => {
+                        setFilter((e.target.value || null) as any)
+                        setSelected(new Set())
+                    }}
                     className="text-xs px-3 py-1.5 rounded-lg bg-bg-card border border-border"
                 >
-                    <option value="">All</option>
                     <option value="entered">Entered</option>
                     <option value="not_entered">Not entered</option>
                     <option value="revoked">Ever revoked</option>
+                    <option value="">All</option>
                 </select>
                 <div className="relative flex-1 min-w-[220px]">
                     <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -266,12 +339,56 @@ function ParticipantsTab() {
                         className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-bg-card border border-border text-sm outline-none focus:border-primary"
                     />
                 </div>
+                <button
+                    onClick={handleResetDay}
+                    disabled={busy !== null}
+                    title="Revoke every entered student — tomorrow morning they can enter again with the same credentials."
+                    className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                    {busy === 'reset' ? <Loader2 size={12} className="animate-spin" /> : <Sunrise size={12} />}
+                    Reset for next day
+                </button>
             </div>
+
+            {/* Bulk action bar — only visible when at least one row is
+                selected. Stays sticky-ish on top of the table for the
+                gate-side admin. */}
+            {selected.size > 0 && (
+                <div className="glass-card rounded-xl px-4 py-2.5 flex items-center gap-3 flex-wrap border-emerald-500/30">
+                    <span className="text-xs">
+                        <b className="text-emerald-400 tabular-nums">{selected.size}</b> selected
+                    </span>
+                    <button
+                        onClick={handleBulkRevoke}
+                        disabled={busy !== null}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-primary text-white flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                        {busy === 'bulk' ? <Loader2 size={12} className="animate-spin" /> : <Undo2 size={12} />}
+                        Revoke selected
+                    </button>
+                    <button
+                        onClick={() => setSelected(new Set())}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-bg-card border border-border hover:bg-white/5"
+                    >
+                        Clear
+                    </button>
+                </div>
+            )}
 
             <div className="glass-card rounded-xl overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="text-left text-[11px] uppercase tracking-wider text-text-muted border-b border-border">
+                            <th className="px-4 py-2 w-10">
+                                {selectableIds.length > 0 && (
+                                    <input
+                                        type="checkbox"
+                                        checked={allSelected}
+                                        onChange={toggleAll}
+                                        title={allSelected ? 'Deselect all entered' : 'Select all entered'}
+                                    />
+                                )}
+                            </th>
                             <th className="px-4 py-2">Student</th>
                             <th className="px-4 py-2">Enrollment</th>
                             <th className="px-4 py-2">Branch</th>
@@ -281,24 +398,43 @@ function ParticipantsTab() {
                         </tr>
                     </thead>
                     <tbody>
-                        {participants.data?.participants.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-text-muted text-xs">
+                                <td colSpan={7} className="px-4 py-8 text-center text-text-muted text-xs">
                                     {participants.isLoading ? 'Loading…' : 'No participants match.'}
                                 </td>
                             </tr>
                         )}
-                        {participants.data?.participants.map((p: any) => (
-                            <ParticipantRow key={p.id} p={p} />
+                        {rows.map((p) => (
+                            <ParticipantRow
+                                key={p.id}
+                                p={p}
+                                selectable={Boolean(p.entryUsedAt)}
+                                isSelected={selected.has(p.id)}
+                                onToggle={() => toggle(p.id)}
+                            />
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            {enteredRows.length > 0 && (
+                <div className="text-[11px] text-text-muted">
+                    Showing {rows.length} rows · {enteredRows.length} currently entered · {selected.size} selected
+                </div>
+            )}
         </div>
     )
 }
 
-function ParticipantRow({ p }: { p: any }) {
+function ParticipantRow({
+    p, selectable, isSelected, onToggle,
+}: {
+    p: any
+    selectable: boolean
+    isSelected: boolean
+    onToggle: () => void
+}) {
     const qc = useQueryClient()
     const [busy, setBusy] = useState<'revoke' | 'resend' | null>(null)
 
@@ -326,7 +462,19 @@ function ParticipantRow({ p }: { p: any }) {
     }
 
     return (
-        <tr className="border-b border-border/50 hover:bg-white/[0.02] transition">
+        <tr className={`border-b border-border/50 transition ${isSelected ? 'bg-primary/10' : 'hover:bg-white/[0.02]'}`}>
+            <td className="px-4 py-2">
+                {selectable ? (
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={onToggle}
+                        title="Select for bulk revoke"
+                    />
+                ) : (
+                    <span className="text-text-muted text-[10px]">—</span>
+                )}
+            </td>
             <td className="px-4 py-2">
                 <div className="font-medium">{p.fullName}</div>
                 <div className="text-[11px] text-text-muted">{p.email}</div>

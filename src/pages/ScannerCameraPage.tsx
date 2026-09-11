@@ -36,8 +36,13 @@ export default function ScannerCameraPage() {
     const [error, setError] = useState<string | null>(null)
 
     const scannerRef = useRef<Html5Qrcode | null>(null)
-    const lastTokenRef = useRef<{ token: string; at: number }>({ token: '', at: 0 })
     const inFlightRef = useRef(false)
+    // Tokens that have been sent to the server this camera session.
+    // We NEVER re-send a token we've already consumed — this stops the
+    // camera from re-scanning the same on-screen QR every 4 seconds
+    // and flipping the guard's banner from "Entry recorded" to
+    // "Already entered" a moment later. Cleared on unmount.
+    const consumedTokensRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
         let cancelled = false
@@ -103,12 +108,16 @@ export default function ScannerCameraPage() {
 
     async function onDecode(decoded: string) {
         if (inFlightRef.current) return
-        const now = Date.now()
-        // De-duplicate the SAME QR being read across many frames.
-        if (lastTokenRef.current.token === decoded && (now - lastTokenRef.current.at) < 4000) {
-            return
-        }
-        lastTokenRef.current = { token: decoded, at: now }
+        // If we've already sent THIS exact token to the server in this
+        // session, skip forever. Student QRs rotate every ~11s so a
+        // "next" scan of the same person will produce a different
+        // string. Prevents the "Already entered" flip-back bug where
+        // the camera keeps decoding the same QR after a successful
+        // scan and the server correctly, but confusingly, replies
+        // ALREADY_ENTERED on the second call.
+        if (consumedTokensRef.current.has(decoded)) return
+
+        consumedTokensRef.current.add(decoded)
         inFlightRef.current = true
 
         try {
@@ -119,7 +128,9 @@ export default function ScannerCameraPage() {
                     title: 'Entry recorded',
                     body: `${result.student?.fullName || 'Student'}`,
                     result,
-                    expiresAt: Date.now() + 2500,
+                    // Snappy for a rush at the gate — guard can also tap
+                    // "Next student" on the banner to dismiss immediately.
+                    expiresAt: Date.now() + 1500,
                 })
             } else if (result.reason === 'ALREADY_ENTERED') {
                 setBanner({
@@ -219,7 +230,16 @@ export default function ScannerCameraPage() {
 
                 {banner && (
                     <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                        <BannerCard banner={banner} />
+                        <BannerCard banner={banner} onDismiss={() => setBanner(null)} />
+                    </div>
+                )}
+
+                {/* Subtle "camera live" indicator so a guard knows the
+                    scanner is actually watching, even between students. */}
+                {ready && !banner && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[11px] text-white/70 bg-black/40 px-3 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Ready — hold student QR inside the frame
                     </div>
                 )}
             </div>
@@ -227,7 +247,7 @@ export default function ScannerCameraPage() {
     )
 }
 
-function BannerCard({ banner }: { banner: NonNullable<Banner> }) {
+function BannerCard({ banner, onDismiss }: { banner: NonNullable<Banner>; onDismiss: () => void }) {
     const palette = banner.kind === 'success'
         ? { bg: 'from-emerald-500/20 to-emerald-500/5', border: 'border-emerald-400/40', icon: <CheckCircle2 size={40} className="text-emerald-300" /> }
         : banner.kind === 'warning'
@@ -264,6 +284,13 @@ function BannerCard({ banner }: { banner: NonNullable<Banner> }) {
                     )}
                 </div>
             )}
+
+            <button
+                onClick={onDismiss}
+                className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-semibold transition"
+            >
+                Next student
+            </button>
         </div>
     )
 }

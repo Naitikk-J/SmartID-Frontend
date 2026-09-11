@@ -217,6 +217,16 @@ export async function revokeCampusEntry(participantId: string, reason?: string) 
     return data.data
 }
 
+export async function revokeCampusEntriesBulk(participantIds: string[], reason?: string) {
+    const { data } = await api.post('/campus-entry/admin/revoke-bulk', { participantIds, reason })
+    return data.data as { ok: boolean; revoked: number }
+}
+
+export async function resetCampusEntryDay(reason?: string) {
+    const { data } = await api.post('/campus-entry/admin/reset-day', { confirm: true, reason })
+    return data.data as { ok: boolean; revoked: number }
+}
+
 export async function resendCredentials(input: { participantIds?: string[]; onlyFailed?: boolean }) {
     const { data } = await api.post('/campus-entry/admin/resend-credentials', input)
     return data.data
