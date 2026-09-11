@@ -21,9 +21,12 @@ import toast from 'react-hot-toast'
 import {
     CheckCircle2, Upload, RefreshCw, Search, Mail, MailX, Undo2,
     Loader2, ShieldAlert, TrendingUp, Users, LogIn, ScanLine,
+    UserPlus, FileSpreadsheet, UserCheck,
 } from 'lucide-react'
 import {
     enrollCampusParticipants,
+    enrollExistingStudents,
+    listExistingStudents,
     listCampusScans,
     listCampusParticipants,
     revokeCampusEntry,
@@ -378,7 +381,355 @@ type ImportRow = {
     section?: string
 }
 
+type ImportMode = 'single' | 'file' | 'existing'
+
 function ImportTab() {
+    const [mode, setMode] = useState<ImportMode>('single')
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-bg-card p-1 w-fit">
+                {(
+                    [
+                        { id: 'single', label: 'Single student', icon: UserPlus },
+                        { id: 'file', label: 'Upload file', icon: FileSpreadsheet },
+                        { id: 'existing', label: 'From existing students', icon: UserCheck },
+                    ] as Array<{ id: ImportMode; label: string; icon: any }>
+                ).map(({ id, label, icon: Icon }) => (
+                    <button
+                        key={id}
+                        onClick={() => setMode(id)}
+                        className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${
+                            mode === id
+                                ? 'bg-primary/15 text-text-primary'
+                                : 'text-text-muted hover:text-text-secondary'
+                        }`}
+                    >
+                        <Icon size={13} /> {label}
+                    </button>
+                ))}
+            </div>
+
+            {mode === 'single' && <SingleImport />}
+            {mode === 'file' && <FileImport />}
+            {mode === 'existing' && <ExistingStudentsImport />}
+        </div>
+    )
+}
+
+// ── SINGLE STUDENT FORM ────────────────────────────────────
+function SingleImport() {
+    const qc = useQueryClient()
+    const [form, setForm] = useState<ImportRow>({ fullName: '', email: '' })
+    const [sendEmail, setSendEmail] = useState(true)
+    const [busy, setBusy] = useState(false)
+    const [result, setResult] = useState<any>(null)
+
+    function updateField<K extends keyof ImportRow>(key: K, value: ImportRow[K]) {
+        setForm((prev) => ({ ...prev, [key]: value }))
+    }
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault()
+        if (!form.fullName.trim() || !form.email.trim()) {
+            toast.error('Full name and email are required')
+            return
+        }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) {
+            toast.error('Enter a valid email address')
+            return
+        }
+        try {
+            setBusy(true)
+            const payload: ImportRow = {
+                fullName: form.fullName.trim(),
+                email: form.email.trim().toLowerCase(),
+                phone: form.phone?.trim() || undefined,
+                enrollmentNo: form.enrollmentNo?.trim() || undefined,
+                department: form.department?.trim() || undefined,
+                year: form.year || undefined,
+                section: form.section?.trim() || undefined,
+            }
+            const data = await enrollCampusParticipants([payload], sendEmail)
+            setResult(data)
+            if (data.summary?.imported > 0) toast.success('Student enrolled')
+            else if (data.summary?.updated > 0) toast.success('Student updated + credentials rotated')
+            else if (data.summary?.failed > 0) toast.error(`Failed: ${data.summary.errors?.[0]?.reason || 'unknown'}`)
+            qc.invalidateQueries({ queryKey: ['campus-entry'] })
+            // Reset only on success
+            if ((data.summary?.imported || 0) + (data.summary?.updated || 0) > 0) {
+                setForm({ fullName: '', email: '' })
+            }
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || err.message || 'Enrolment failed')
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="glass-card rounded-xl p-6 space-y-4">
+            <div>
+                <h3 className="text-sm font-semibold">Add one student</h3>
+                <p className="text-xs text-text-muted mt-1">
+                    Only <b>Full name</b> and <b>Email</b> are required. A random password is generated,
+                    the Student record is created if missing, and (optionally) an email is sent with the credentials.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Full name *" value={form.fullName} onChange={(v) => updateField('fullName', v)} disabled={busy} placeholder="Naitik Jain" />
+                <Field label="Email *" type="email" value={form.email} onChange={(v) => updateField('email', v)} disabled={busy} placeholder="you@mitsgwl.ac.in" />
+                <Field label="Phone" value={form.phone || ''} onChange={(v) => updateField('phone', v)} disabled={busy} placeholder="9999999999" />
+                <Field label="Enrollment No." value={form.enrollmentNo || ''} onChange={(v) => updateField('enrollmentNo', v)} disabled={busy} placeholder="0901CS221001" />
+                <Field label="Department / Branch" value={form.department || ''} onChange={(v) => updateField('department', v)} disabled={busy} placeholder="CSE" />
+                <div className="grid grid-cols-2 gap-3">
+                    <label className="text-xs">
+                        <span className="text-text-muted">Year</span>
+                        <select
+                            className="mt-1 w-full rounded-lg bg-bg-card border border-border px-2 py-1.5 text-sm outline-none focus:border-primary"
+                            value={form.year || ''}
+                            onChange={(e) => updateField('year', e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={busy}
+                        >
+                            <option value="">—</option>
+                            {[1, 2, 3, 4].map((y) => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </label>
+                    <Field label="Section" value={form.section || ''} onChange={(v) => updateField('section', v)} disabled={busy} placeholder="A" />
+                </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} disabled={busy} />
+                Email the login credentials
+            </label>
+
+            <div className="flex items-center gap-3">
+                <button
+                    type="submit"
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                    {busy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                    Enrol student
+                </button>
+                {result?.summary && (
+                    <span className="text-xs text-text-muted">
+                        {result.summary.imported > 0 && `${result.summary.imported} added`}
+                        {result.summary.updated > 0 && `${result.summary.updated} updated (password rotated)`}
+                        {result.summary.failed > 0 && ` · ${result.summary.failed} failed`}
+                    </span>
+                )}
+            </div>
+        </form>
+    )
+}
+
+function Field({
+    label, value, onChange, disabled, placeholder, type = 'text',
+}: {
+    label: string
+    value: string
+    onChange: (v: string) => void
+    disabled?: boolean
+    placeholder?: string
+    type?: string
+}) {
+    return (
+        <label className="text-xs block">
+            <span className="text-text-muted">{label}</span>
+            <input
+                type={type}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="mt-1 w-full rounded-lg bg-bg-card border border-border px-3 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+            />
+        </label>
+    )
+}
+
+// ── PICK FROM EXISTING STUDENTS ─────────────────────────────
+function ExistingStudentsImport() {
+    const qc = useQueryClient()
+    const [search, setSearch] = useState('')
+    const [dept, setDept] = useState('')
+    const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [sendEmails, setSendEmails] = useState(true)
+    const [busy, setBusy] = useState(false)
+    const [result, setResult] = useState<any>(null)
+
+    const students = useQuery({
+        queryKey: ['existing-students', search, dept],
+        queryFn: () => listExistingStudents({
+            search: search || undefined,
+            dept: dept || undefined,
+            limit: 100,
+        }),
+    })
+
+    function toggle(id: string) {
+        setSelected((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            return next
+        })
+    }
+
+    function selectAll() {
+        const ids = students.data?.students.map((s) => s.id) || []
+        setSelected((prev) => {
+            const next = new Set(prev)
+            for (const id of ids) next.add(id)
+            return next
+        })
+    }
+
+    function clearSelection() { setSelected(new Set()) }
+
+    async function handleEnrol() {
+        if (selected.size === 0) return
+        try {
+            setBusy(true)
+            const data = await enrollExistingStudents(Array.from(selected), sendEmails)
+            setResult(data)
+            if (data.queued) {
+                toast.success(`Queued ${data.rows} students for background enrolment`)
+            } else {
+                toast.success(
+                    `Enrolled ${data.summary.imported}, refreshed ${data.summary.updated}${data.summary.failed ? `, ${data.summary.failed} failed` : ''}`,
+                )
+            }
+            clearSelection()
+            qc.invalidateQueries({ queryKey: ['campus-entry'] })
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || err.message || 'Enrolment failed')
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const rows = students.data?.students || []
+
+    return (
+        <div className="space-y-3">
+            <div className="glass-card rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name / enrollment / email"
+                            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-bg-card border border-border text-sm outline-none focus:border-primary"
+                        />
+                    </div>
+                    <input
+                        value={dept}
+                        onChange={(e) => setDept(e.target.value)}
+                        placeholder="Department"
+                        className="px-3 py-1.5 rounded-lg bg-bg-card border border-border text-sm w-32 outline-none focus:border-primary"
+                    />
+                    <button
+                        onClick={selectAll}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-bg-card border border-border hover:bg-white/5"
+                    >
+                        Select all visible
+                    </button>
+                    {selected.size > 0 && (
+                        <button
+                            onClick={clearSelection}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-bg-card border border-border hover:bg-white/5"
+                        >
+                            Clear ({selected.size})
+                        </button>
+                    )}
+                </div>
+
+                <div className="max-h-[420px] overflow-auto border border-border rounded-lg">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-bg-card">
+                            <tr className="text-left text-[11px] uppercase tracking-wider text-text-muted border-b border-border">
+                                <th className="px-3 py-2 w-8"></th>
+                                <th className="px-3 py-2">Student</th>
+                                <th className="px-3 py-2">Enrollment</th>
+                                <th className="px-3 py-2">Branch</th>
+                                <th className="px-3 py-2">Year</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {students.isLoading && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-text-muted text-xs">Loading…</td></tr>
+                            )}
+                            {!students.isLoading && rows.length === 0 && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-text-muted text-xs">No students match.</td></tr>
+                            )}
+                            {rows.map((s) => {
+                                const isSelected = selected.has(s.id)
+                                return (
+                                    <tr
+                                        key={s.id}
+                                        onClick={() => toggle(s.id)}
+                                        className={`border-t border-border/40 cursor-pointer transition ${
+                                            isSelected ? 'bg-primary/10' : 'hover:bg-white/[0.02]'
+                                        }`}
+                                    >
+                                        <td className="px-3 py-1.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => toggle(s.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-1.5">
+                                            <div className="font-medium text-xs">{s.fullName}</div>
+                                            <div className="text-[10px] text-text-muted">{s.email}</div>
+                                        </td>
+                                        <td className="px-3 py-1.5 text-xs tabular-nums">{s.enrollmentNo}</td>
+                                        <td className="px-3 py-1.5 text-xs">{s.department}</td>
+                                        <td className="px-3 py-1.5 text-xs">Y{s.year}</td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="text-[11px] text-text-muted">
+                    Showing {rows.length}{students.data?.total !== undefined ? ` of ${students.data.total}` : ''} students · {selected.size} selected
+                </div>
+            </div>
+
+            <div className="glass-card rounded-xl p-4 flex items-center gap-4 flex-wrap">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input type="checkbox" checked={sendEmails} onChange={(e) => setSendEmails(e.target.checked)} />
+                    Send credential emails (rotates password)
+                </label>
+                <button
+                    onClick={handleEnrol}
+                    disabled={busy || selected.size === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                    {busy ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />}
+                    Enrol {selected.size} selected
+                </button>
+                {result && (
+                    <span className="text-xs text-text-muted">
+                        {result.queued
+                            ? `Queued ${result.rows} rows in background.`
+                            : `${result.summary?.imported || 0} added · ${result.summary?.updated || 0} refreshed · ${result.summary?.failed || 0} failed`}
+                    </span>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ── BULK FILE (CSV / XLSX) ──────────────────────────────────
+function FileImport() {
     const qc = useQueryClient()
     const [rows, setRows] = useState<ImportRow[]>([])
     const [sendEmails, setSendEmails] = useState(true)

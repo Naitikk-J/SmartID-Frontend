@@ -5,7 +5,7 @@
 // Two ways in:
 //   1. Google Identity Services — restricted to the college
 //      email domain (VITE_CAMPUS_ENTRY_STUDENT_DOMAIN, default
-//      `mitsjwl.ac.in`, matches the backend env).
+//      `mitsgwl.ac.in`, matches the backend env).
 //   2. Login ID + password — the credentials the admin emailed
 //      after the bulk import.
 //
@@ -32,7 +32,7 @@ declare global {
 }
 
 const STUDENT_DOMAIN = (import.meta.env.VITE_CAMPUS_ENTRY_STUDENT_DOMAIN as string | undefined)
-    || 'mitsjwl.ac.in'
+    || 'mitsgwl.ac.in'
 
 export default function StudentPortalLoginPage() {
     const navigate = useNavigate()

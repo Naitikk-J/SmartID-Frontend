@@ -151,6 +151,41 @@ export async function enrollCampusParticipants(participants: Array<{
     return data.data
 }
 
+export async function enrollExistingStudents(studentIds: string[], sendEmails = true) {
+    const { data } = await api.post('/campus-entry/admin/enroll-existing', { studentIds, sendEmails })
+    return data.data
+}
+
+// Reuses the existing /students endpoint (admin auth already applied
+// via the shared axios instance). Returns the list used by the
+// "Pick existing students" flow in the campus-entry admin UI.
+export async function listExistingStudents(params: {
+    search?: string
+    dept?: string
+    year?: number
+    page?: number
+    limit?: number
+} = {}) {
+    const { data } = await api.get('/students', { params: { limit: 50, ...params } })
+    return data.data as {
+        students: Array<{
+            id: string
+            fullName: string
+            email: string
+            enrollmentNo: string
+            department: string
+            year: number
+            section?: string
+            phone?: string
+            photoUrl?: string
+        }>
+        total: number
+        page: number
+        limit: number
+        pages: number
+    }
+}
+
 export async function listCampusScans(params: {
     limit?: number
     cursor?: string | null

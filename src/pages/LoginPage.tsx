@@ -69,17 +69,19 @@ export default function LoginPage() {
                             return
                         }
                         const tokenEmail = decodeGoogleEmailFromIdToken(idToken)
-                        if (tokenEmail?.endsWith('@mitsgwl.ac.in') || tokenEmail?.endsWith('@mitsjwl.ac.in')) {
+                        if (tokenEmail?.endsWith('@mitsgwl.ac.in')) {
                             toast('Student account detected. Opening student portal…')
                             navigate('/student/login', { replace: true })
                             return
                         }
-                        if (
-                            tokenEmail
-                            && tokenEmail !== 'naitikjainjbp@gmail.com'
-                            && !tokenEmail.endsWith('@mitsgwalior.in')
-                        ) {
-                            toast.error('Use only @mitsgwalior.in admin account (or super admin) on this portal.')
+                        // Admin console is locked to the SUPER_ADMIN email
+                        // only. All other emails (including any historical
+                        // @mitsgwalior.in admin accounts) are rejected —
+                        // the server enforces the same rule, this is just
+                        // faster UX feedback.
+                        const ADMIN_ALLOWED = ['naitikjainjbp@gmail.com']
+                        if (tokenEmail && !ADMIN_ALLOWED.includes(tokenEmail)) {
+                            toast.error('This email is not authorised for the admin console.')
                             return
                         }
                         try {
@@ -193,8 +195,11 @@ export default function LoginPage() {
 
                         <h2 className="text-2xl font-bold tracking-tight">Sign in</h2>
                         <p className="text-text-secondary text-sm mt-1.5">
-                            Use your <span className="font-medium text-text-primary">@mitsgwalior.in</span> Google
-                            account to access the admin console.
+                            Admin console is restricted to authorised super-admin accounts only.
+                            Students should sign in at{' '}
+                            <a href="/student/login" className="font-medium text-primary hover:underline">
+                                /student/login
+                            </a>.
                         </p>
 
                         <div className="mt-8 glass-card p-6 rounded-2xl">
