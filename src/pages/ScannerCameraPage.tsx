@@ -59,7 +59,11 @@ export default function ScannerCameraPage() {
                 await scanner.start(
                     rear.id,
                     {
-                        fps: 12,
+                        // 25 fps = ~40ms per decode attempt. QR detection is
+                        // cheap; the real cost was the sequential DB writes
+                        // on the backend (fixed separately). This gets us
+                        // sub-100ms from "QR in frame" to "request sent".
+                        fps: 25,
                         qrbox: { width: 260, height: 260 },
                         aspectRatio: 1.0,
                     },
@@ -148,10 +152,11 @@ export default function ScannerCameraPage() {
                 expiresAt: Date.now() + 2500,
             })
         } finally {
-            // Small guard-band so a guard hitting the QR three times a
-            // second doesn't hammer the API. The 4s dedupe above still
-            // holds for identical tokens.
-            setTimeout(() => { inFlightRef.current = false }, 500)
+            // Tight guard-band — same-token dedupe (4s above) still
+            // stops the same student's QR triggering back-to-back
+            // requests. This only limits DIFFERENT tokens in a row,
+            // so 100ms keeps throughput at ~10 scans/sec.
+            setTimeout(() => { inFlightRef.current = false }, 100)
         }
     }
 
